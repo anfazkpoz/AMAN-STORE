@@ -38,6 +38,52 @@ export async function POST(req: Request) {
   }
 }
 
+export async function PUT(req: Request) {
+  try {
+    await dbConnect();
+    const body = await req.json();
+    const { id, ...updateData } = body;
+
+    const oldEntry = await JournalEntry.findById(id);
+    if (!oldEntry) {
+      return NextResponse.json({ error: "Entry not found" }, { status: 404 });
+    }
+
+    // 1. Reverse OLD account balances
+    for (const line of oldEntry.lines) {
+      const account = await Account.findById(line.accountId);
+      if (account) {
+        if (line.type === account.balanceType) {
+          account.balance -= line.amount;
+        } else {
+          account.balance += line.amount;
+        }
+        await account.save();
+      }
+    }
+
+    // 2. Update the Journal Entry
+    const updatedEntry = await JournalEntry.findByIdAndUpdate(id, updateData, { new: true });
+
+    // 3. Apply NEW account balances
+    for (const line of updateData.lines) {
+      const account = await Account.findById(line.accountId);
+      if (account) {
+        if (line.type === account.balanceType) {
+          account.balance += line.amount;
+        } else {
+          account.balance -= line.amount;
+        }
+        await account.save();
+      }
+    }
+
+    return NextResponse.json(updatedEntry);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: Request) {
   try {
     await dbConnect();

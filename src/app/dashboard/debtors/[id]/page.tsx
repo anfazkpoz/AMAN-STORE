@@ -12,7 +12,7 @@ export default function StudentLedgerPage() {
   const params = useParams();
   const router = useRouter();
   const id = params.id as string;
-  const { debtors, accounts, journalEntries, addJournalEntry } = useAccounting();
+  const { debtors, accounts, journalEntries, addJournalEntry, deleteDebtor, reloadData } = useAccounting();
 
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
   
@@ -44,7 +44,7 @@ export default function StudentLedgerPage() {
 
   const currentBalance = studentAccount.balance;
 
-  const handlePostTransaction = (e: React.FormEvent) => {
+  const handlePostTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || isNaN(Number(amount)) || Number(amount) <= 0) return;
 
@@ -52,7 +52,7 @@ export default function StudentLedgerPage() {
     // "Cash A/c" is typically debited when Debt is credited (Student makes payment)
     const oppositeAccountId = type === "Debit" ? "4" : "1"; 
     
-    addJournalEntry({
+    await addJournalEntry({
       date,
       narration: narration || (type === "Debit" ? "Goods/Services Sold" : "Payment Received"),
       lf: "",
@@ -69,45 +69,31 @@ export default function StudentLedgerPage() {
     setTimeout(() => setSuccess(false), 3000);
   };
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (currentUser?.role !== "Admin") return;
     if (confirm(`Are you sure you want to permanently delete ${studentDebtor.name}'s record and transactions?`)) {
-      const accountId = studentDebtor.accountId;
-
-      // 1. Remove debtor
-      const debtorsStr = localStorage.getItem('aman_debtors');
-      if (debtorsStr) {
-        let dList: Debtor[] = JSON.parse(debtorsStr);
-        dList = dList.filter(d => d.id !== id);
-        localStorage.setItem('aman_debtors', JSON.stringify(dList));
+      // 1. Delete the debtor/student and all associated data via the context/API
+      await deleteDebtor(id);
+      
+      // 2. Fetch the user associated with this debtor to delete them from MongoDB
+      try {
+        const usersRes = await fetch('/api/users?role=Student');
+        if (usersRes.ok) {
+          const users: UserType[] = await usersRes.json();
+          const targetUser = users.find(u => u.debtorId === id);
+          if (targetUser) {
+            await fetch('/api/users', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: (targetUser as any)._id })
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to clean up user record:", err);
       }
-
-      // 2. Remove student user
-      const usersStr = localStorage.getItem('aman_store_users');
-      if (usersStr) {
-         let uList: UserType[] = JSON.parse(usersStr);
-         uList = uList.filter(u => u.debtorId !== id);
-         localStorage.setItem('aman_store_users', JSON.stringify(uList));
-      }
-
-      // 3. Remove the account from ledger
-      const accountsStr = localStorage.getItem('aman_accounts');
-      if (accountsStr) {
-        let aList = JSON.parse(accountsStr);
-        aList = aList.filter((a: any) => a.id !== accountId);
-        localStorage.setItem('aman_accounts', JSON.stringify(aList));
-      }
-
-      // 4. Remove ALL journal entries referencing this account
-      const entriesStr = localStorage.getItem('aman_entries');
-      if (entriesStr) {
-        let entries = JSON.parse(entriesStr);
-        entries = entries.filter((entry: any) =>
-          !entry.lines.some((line: any) => line.accountId === accountId)
-        );
-        localStorage.setItem('aman_entries', JSON.stringify(entries));
-      }
-
+      
+      await reloadData();
       router.push("/dashboard/debtors");
     }
   };
@@ -148,7 +134,7 @@ export default function StudentLedgerPage() {
              </h1>
              <div className="flex items-center gap-1.5 text-slate-500 font-medium text-sm mt-1">
                <Phone size={14} />
-               <span>{studentDebtor.mobileNumber}</span>
+               <span>{studentDebtor.mobileNumber || "No Phone"}</span>
              </div>
            </div>
         </div>

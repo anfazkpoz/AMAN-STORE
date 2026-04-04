@@ -1,20 +1,25 @@
 "use client";
-
-import { Users, Search, Filter, Plus, ArrowDownCircle, ArrowUpCircle, X, User as UserIcon, Phone, KeyRound, CheckCircle2, Trash2 } from 'lucide-react';
+import { Users, Search, Filter, Plus, ArrowDownCircle, ArrowUpCircle, X, User as UserIcon, Phone, KeyRound, CheckCircle2, Trash2, Eye, EyeOff, Pencil } from 'lucide-react';
 import { useAccounting } from '@/lib/AccountingContext';
 import { useState, useEffect, useMemo } from 'react';
-import { Batch, User } from '@/lib/types';
+import { Batch, User, Debtor } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 
-const BATCHES: Batch[] = ['JD1', 'JD2', 'HS1', 'HS2', 'BS1', 'BS2', 'BS3', 'BS4', 'BS5'];
+const BATCHES: Batch[] = ['JD1', 'JD2', 'JD3', 'HS1', 'HS2', 'BS1', 'BS2', 'BS3', 'BS4', 'BS5'];
 
 export default function DebtorsPage() {
-  const { debtors, accounts, addJournalEntry, deleteDebtor, addDebtor } = useAccounting();
+  const { debtors, accounts, addJournalEntry, deleteDebtor, updateDebtor, reloadData } = useAccounting();
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   const [search, setSearch] = useState("");
   const [batchFilter, setBatchFilter] = useState<Batch | "All">("All");
+
+  // Edit State
+  const [editingDebtor, setEditingDebtor] = useState<Debtor | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editBatch, setEditBatch] = useState<Batch | "">("");
 
   // Quick Actions State
   const [quickMode, setQuickMode] = useState<'None' | 'Debit' | 'Credit' | 'Register'>('None');
@@ -25,6 +30,7 @@ export default function DebtorsPage() {
   const [regPhone, setRegPhone] = useState("");
   const [regPassword, setRegPassword] = useState("");
   const [regBatch, setRegBatch] = useState<Batch | "">("");
+  const [showRegPassword, setShowRegPassword] = useState(false);
 
   const [qaMsg, setQaMsg] = useState("");
   const [qaError, setQaError] = useState("");
@@ -46,21 +52,80 @@ export default function DebtorsPage() {
     });
   }, [debtors, search, batchFilter]);
 
-  const handleDeleteDebtor = (e: React.MouseEvent, id: string, name: string) => {
+  const handleDeleteDebtor = async (e: React.MouseEvent, id: string, name: string) => {
     e.stopPropagation();
     if (currentUser?.role !== "Admin") return;
     if (confirm(`Are you sure you want to permanently delete ${name}'s record and all access?`)) {
-      // 1. Delete all accounting data (debtor record, ledger account, journal entries,
-      //    and reverse ALL affected account balances) through the context so state stays consistent.
-      deleteDebtor(id);
-
-      // 2. Remove the associated student user from the users list (not in context).
-      const usersStr = localStorage.getItem('aman_store_users');
-      if (usersStr) {
-        let uList: User[] = JSON.parse(usersStr);
-        uList = uList.filter(u => u.debtorId !== id);
-        localStorage.setItem('aman_store_users', JSON.stringify(uList));
+      // 1. Delete the debtor/student and all associated data via the context/API
+      await deleteDebtor(id);
+      
+      // 2. Fetch the user associated with this debtor to delete them from MongoDB if role matches
+      try {
+        const usersRes = await fetch('/api/users?role=Student');
+        if (usersRes.ok) {
+          const users: User[] = await usersRes.json();
+          const targetUser = users.find(u => u.debtorId === id);
+          if (targetUser) {
+            await fetch('/api/users', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ id: (targetUser as any)._id })
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to clean up user record:", err);
       }
+      
+      await reloadData();
+    }
+  };
+
+  const handleQuickRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setQaError("");
+    
+    // Phone is optional — clean if provided
+    const rawPhone = regPhone.replace(/\s+/g, '').replace(/[^0-9]/g, '');
+    const finalPhone = rawPhone.startsWith('91') && rawPhone.length === 12 ? rawPhone.slice(2) : rawPhone;
+    
+    // Validate only mandatory fields
+    if (!regName.trim() || !regBatch || !regPassword.trim()) {
+      setQaError("Please fill Name, Batch and Password."); return;
+    }
+    
+    // If phone provided, enforce 10 digits
+    if (finalPhone && !/^[0-9]{10}$/.test(finalPhone)) {
+      setQaError("Phone must be exactly 10 digits if provided."); return;
+    }
+
+    try {
+      // Direct call to users API which handles account and debtor creation for us
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: regName.trim(),
+          phone: finalPhone || `student_${Date.now()}`, // Fallback if phone is empty
+          password: regPassword.trim(),
+          role: 'Student',
+          batch: regBatch as Batch
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        setQaError(errData.error || "Registration failed.");
+        return;
+      }
+
+      await reloadData();
+      setRegName(''); setRegPhone(''); setRegPassword(''); setRegBatch('');
+      setQaError('');
+      setQaMsg(`✓ ${regName.trim()} registered successfully!`);
+      setTimeout(() => { setQaMsg(''); setQuickMode('None'); }, 2000);
+    } catch (err: any) {
+      setQaError(err.message || "An error occurred.");
     }
   };
 
@@ -133,7 +198,7 @@ export default function DebtorsPage() {
                           </span>
                         )}
                       </p>
-                      <p className="text-xs font-medium text-slate-500 mt-0.5">{debtor.mobileNumber}</p>
+                      <p className="text-xs font-medium text-slate-500 mt-0.5">{debtor.mobileNumber || "No Phone"}</p>
                     </div>
                   </div>
                   <div className="text-right flex items-center gap-4">
@@ -143,15 +208,32 @@ export default function DebtorsPage() {
                       </p>
                       <p className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">Balance</p>
                     </div>
-                    {currentUser?.role === 'Admin' && (
-                      <button 
-                        onClick={(e) => handleDeleteDebtor(e, debtor.id, debtor.name)}
-                        className="p-2 text-slate-300 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors ml-2"
-                        title="Delete Student"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1 group-hover:opacity-100 transition-opacity">
+                      {currentUser?.role === 'Admin' && (
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setEditingDebtor(debtor);
+                            setEditName(debtor.name);
+                            setEditPhone(debtor.mobileNumber);
+                            setEditBatch(debtor.batch || "");
+                          }}
+                          className="p-2 text-slate-300 hover:bg-slate-100 hover:text-primary rounded-full transition-colors"
+                          title="Edit Student"
+                        >
+                          <Pencil size={16} />
+                        </button>
+                      )}
+                      {currentUser?.role === 'Admin' && (
+                        <button 
+                          onClick={(e) => handleDeleteDebtor(e, debtor.id, debtor.name).catch(console.error)}
+                          className="p-2 text-slate-300 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors"
+                          title="Delete Student"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -160,7 +242,6 @@ export default function DebtorsPage() {
         )}
       </div>
 
-      {/* Quick Actions Buttons */}
       <div className="grid grid-cols-2 gap-4">
         <button 
           onClick={() => setQuickMode('Debit')}
@@ -178,7 +259,6 @@ export default function DebtorsPage() {
         </button>
       </div>
 
-      {/* Quick Action Modal */}
       {quickMode !== 'None' && (
         <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in">
           <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
@@ -197,7 +277,7 @@ export default function DebtorsPage() {
 
               {(quickMode === 'Debit' || quickMode === 'Credit') && (
                 <form 
-                  onSubmit={(e) => {
+                  onSubmit={async (e) => {
                     e.preventDefault();
                     if (!qaStudentId || !qaAmount || isNaN(Number(qaAmount))) {
                        setQaError("Please select a student and enter a valid amount.");
@@ -207,7 +287,7 @@ export default function DebtorsPage() {
                     if (!student) return;
                     
                     const oppositeAccountId = quickMode === "Debit" ? "4" : "1"; 
-                    addJournalEntry({
+                    await addJournalEntry({
                        date: new Date().toISOString().split("T")[0],
                        narration: quickMode === "Debit" ? "Quick Charge Added" : "Quick Payment Received",
                        lf: "",
@@ -234,7 +314,7 @@ export default function DebtorsPage() {
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 outline-none text-sm font-bold text-slate-800"
                     >
                       <option value="" disabled>--- Choose Student ---</option>
-                      {debtors.map(d => <option key={d.id} value={d.id}>{d.name} ({d.mobileNumber})</option>)}
+                      {debtors.map(d => <option key={d.id} value={d.id}>{d.name} ({d.mobileNumber || "No Phone"})</option>)}
                     </select>
                   </div>
                   
@@ -272,56 +352,7 @@ export default function DebtorsPage() {
               )}
 
               {quickMode === 'Register' && (
-                <form 
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                     // Phone is optional — clean if provided
-                     const rawPhone = regPhone.replace(/\s+/g, '').replace(/[^0-9]/g, '');
-                     const finalPhone = rawPhone.startsWith('91') && rawPhone.length === 12 ? rawPhone.slice(2) : rawPhone;
-                     // Validate only mandatory fields
-                     if (!regName.trim() || !regBatch || !regPassword.trim()) {
-                        setQaError("Please fill Name, Batch and Password."); return;
-                     }
-                     // If phone provided, enforce 10 digits
-                     if (finalPhone && !/^[0-9]{10}$/.test(finalPhone)) {
-                       setQaError("Phone must be exactly 10 digits if provided."); return;
-                     }
-                     const usersStr = localStorage.getItem('aman_store_users');
-                     const users: User[] = usersStr ? JSON.parse(usersStr) : [];
-                     // Check duplicate phone only if phone was entered
-                     if (finalPhone && users.find(u => u.phone === finalPhone)) {
-                         setQaError("Phone number already registered."); return;
-                     }
-                    
-                     // Use context addDebtor (creates ledger account + debtor atomically)
-                     const newDebtor = addDebtor({
-                       name: regName.trim(),
-                       mobileNumber: finalPhone,
-                       batch: regBatch as Batch,
-                     });
-
-                     // Save the student user login to localStorage
-                     const timestamp = Date.now().toString();
-                     const newUser: User = {
-                       id: `student_${timestamp}`,
-                       phone: finalPhone,
-                       password: regPassword.trim(),
-                       name: regName.trim(),
-                       role: 'Student',
-                       batch: regBatch as Batch,
-                       debtorId: newDebtor.id
-                     };
-                     users.push(newUser);
-                     localStorage.setItem('aman_store_users', JSON.stringify(users));
-
-                     // Reset form and close modal — student appears in list immediately
-                     setRegName(''); setRegPhone(''); setRegPassword(''); setRegBatch('');
-                     setQaError('');
-                     setQaMsg(`✓ ${regName.trim()} registered successfully!`);
-                     setTimeout(() => { setQaMsg(''); setQuickMode('None'); }, 2000);
-                  }}
-                  className="space-y-3"
-                >
+                <form onSubmit={handleQuickRegister} className="space-y-3">
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Full Name</label>
                     <div className="relative">
@@ -363,10 +394,17 @@ export default function DebtorsPage() {
                     <div className="relative">
                       <KeyRound size={14} className="absolute left-3.5 top-3.5 text-slate-400" />
                       <input 
-                        type="password" value={regPassword} onChange={e => setRegPassword(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold"
+                        type={showRegPassword ? "text" : "password"} value={regPassword} onChange={e => setRegPassword(e.target.value)}
+                        className="w-full pl-10 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold"
                         placeholder="••••••••"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowRegPassword(!showRegPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                      >
+                        {showRegPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
                     </div>
                   </div>
 
@@ -393,6 +431,60 @@ export default function DebtorsPage() {
         </div>
       )}
 
+      {editingDebtor && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[100] flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+              <h2 className="font-bold text-slate-800">Edit Student Profile</h2>
+              <button 
+                onClick={() => setEditingDebtor(null)} 
+                className="p-2 text-slate-400 hover:bg-slate-200 rounded-full"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form 
+              onSubmit={async (e) => {
+                e.preventDefault();
+                await updateDebtor({ ...editingDebtor, name: editName, mobileNumber: editPhone, batch: editBatch as Batch });
+                setEditingDebtor(null);
+                await reloadData();
+              }}
+              className="p-6 space-y-4"
+            >
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Full Name</label>
+                <input 
+                  type="text" value={editName} onChange={e => setEditName(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Batch</label>
+                <select
+                  value={editBatch} onChange={(e) => setEditBatch(e.target.value as Batch)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold"
+                >
+                  {BATCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Phone</label>
+                <input 
+                  type="tel" value={editPhone} onChange={e => setEditPhone(e.target.value)}
+                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-sm font-semibold"
+                />
+              </div>
+              <button 
+                type="submit"
+                className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md font-bold text-sm tracking-wide mt-2"
+              >
+                Update Profile
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

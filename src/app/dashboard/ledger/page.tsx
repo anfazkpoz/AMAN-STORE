@@ -22,7 +22,7 @@ export default function LedgerPage() {
 
     const computed = journalEntries
       .filter((entry: any) => entry.lines.some((l: any) => l.accountId === selectedAccountId))
-      .sort((a: any, b: any) => a.createdAt - b.createdAt) // Ascending chronological for a ledger
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()) // Ascending by entry date
       .flatMap((entry: any) => {
         const matchingLines = entry.lines.filter((l: any) => l.accountId === selectedAccountId);
 

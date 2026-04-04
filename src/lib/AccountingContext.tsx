@@ -5,15 +5,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { Account, JournalEntry, Debtor } from './types';
 
-// Pre-populate some essential AMAN STORE accounts (Now handled by DB)
-const DEFAULT_ACCOUNTS: Account[] = [
-  { id: '1', name: 'Cash A/c', type: 'Asset', balanceType: 'Debit', balance: 0 },
-  { id: '2', name: 'Bank A/c', type: 'Asset', balanceType: 'Debit', balance: 0 },
-  { id: '3', name: 'Capital A/c', type: 'Equity', balanceType: 'Credit', balance: 0 },
-  { id: '4', name: 'Sales A/c', type: 'Revenue', balanceType: 'Credit', balance: 0 },
-  { id: '5', name: 'Purchases A/c', type: 'Expense', balanceType: 'Debit', balance: 0 },
-];
-
 interface AccountingState {
   accounts: Account[];
   journalEntries: JournalEntry[];
@@ -24,6 +15,8 @@ interface AccountingState {
   deleteAccount: (accountId: string) => Promise<void>;
   addAccount: (account: Omit<Account, 'id' | 'balance'>) => Promise<Account>;
   addDebtor: (debtor: Omit<Debtor, 'id' | 'accountId' | 'currentBalance'>) => Promise<Debtor>;
+  updateJournalEntry: (entry: JournalEntry) => Promise<void>;
+  updateDebtor: (debtor: Debtor) => Promise<void>;
   reloadData: () => void;
   isLoaded: boolean;
 }
@@ -48,10 +41,22 @@ export function AccountingProvider({ children }: { children: React.ReactNode }) 
       const entriesJson = await entriesRes.json();
       const debtorsJson = await debtorsRes.json();
 
-      // Normalize MongoDB _id to id for frontend compatibility
-      const normAcc = accJson.map((a: any) => ({ ...a, id: a._id }));
-      const normEntries = entriesJson.map((e: any) => ({ ...e, id: e._id }));
-      const normDebtors = debtorsJson.map((d: any) => ({ ...d, id: d._id }));
+      // Robustly check if each response is an array before mapping
+      const normAcc = Array.isArray(accJson) 
+        ? accJson.map((a: any) => ({ ...a, id: a._id })) 
+        : [];
+        
+      const normEntries = Array.isArray(entriesJson) 
+        ? entriesJson.map((e: any) => ({ ...e, id: e._id })) 
+        : [];
+        
+      const normDebtors = Array.isArray(debtorsJson) 
+        ? debtorsJson.map((d: any) => ({ ...d, id: d._id })) 
+        : [];
+
+      if (!Array.isArray(accJson) || !Array.isArray(entriesJson) || !Array.isArray(debtorsJson)) {
+        console.error("One or more API responses were not arrays:", { accJson, entriesJson, debtorsJson });
+      }
 
       setAccounts(normAcc);
       setJournalEntries(normEntries);
@@ -78,6 +83,36 @@ export function AccountingProvider({ children }: { children: React.ReactNode }) 
       }
     } catch (error) {
       console.error("Failed to add entry:", error);
+    }
+  };
+
+  const updateJournalEntry = async (entry: JournalEntry) => {
+    try {
+      const res = await fetch('/api/entries', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(entry),
+      });
+      if (res.ok) {
+        await reloadData();
+      }
+    } catch (error) {
+      console.error("Failed to update entry:", error);
+    }
+  };
+
+  const updateDebtor = async (debtor: Debtor) => {
+    try {
+      const res = await fetch('/api/debtors', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(debtor),
+      });
+      if (res.ok) {
+        await reloadData();
+      }
+    } catch (error) {
+      console.error("Failed to update debtor:", error);
     }
   };
 
@@ -151,7 +186,7 @@ export function AccountingProvider({ children }: { children: React.ReactNode }) 
   };
 
   return (
-    <AccountingContext.Provider value={{ accounts, journalEntries, debtors, addJournalEntry, deleteJournalEntry, deleteDebtor, deleteAccount, addAccount, addDebtor, reloadData, isLoaded }}>
+    <AccountingContext.Provider value={{ accounts, journalEntries, debtors, addJournalEntry, updateJournalEntry, deleteJournalEntry, deleteDebtor, updateDebtor, deleteAccount, addAccount, addDebtor, reloadData, isLoaded }}>
       {children}
     </AccountingContext.Provider>
   );

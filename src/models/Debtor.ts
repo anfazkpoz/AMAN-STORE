@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const DebtorSchema = new mongoose.Schema({
-  accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', required: true },
+  accountId: { type: String, ref: 'Account', required: true },
   name: { type: String, required: true },
   mobileNumber: { type: String, required: true },
   batch: { type: String },

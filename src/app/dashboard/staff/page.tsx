@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import {
   UserCog, Plus, Trash2, KeyRound, Phone, User as UserIcon,
-  CheckCircle2, AlertCircle, Hash
+  CheckCircle2, AlertCircle, Hash, Eye, EyeOff
 } from "lucide-react";
 import { User } from "@/lib/types";
 
@@ -15,6 +15,7 @@ export default function StaffManagementPage() {
   const [userId, setUserId] = useState("");     // login ID (stored in phone field)
   const [phone, setPhone] = useState("");       // actual mobile number
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -25,7 +26,7 @@ export default function StaffManagementPage() {
       const res = await fetch('/api/users?role=Staff');
       if (res.ok) {
         const data = await res.json();
-        const normalized = data.map((u: any) => ({ ...u, id: u._id }));
+        const normalized = Array.isArray(data) ? data.map((u: any) => ({ ...u, id: u._id })) : [];
         setUsers(normalized);
       }
     } catch (err) {
@@ -85,7 +86,7 @@ export default function StaffManagementPage() {
       setPhone("");
       setPassword("");
 
-      setSuccess(`Staff "${newStaff.name}" added. User ID: ${cleanUserId}`);
+      setSuccess(`Staff "${newStaff.name}" added. Staff ID: ${cleanUserId}`);
       setTimeout(() => setSuccess(""), 5000);
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
@@ -158,10 +159,10 @@ export default function StaffManagementPage() {
               </div>
             </div>
 
-            {/* User ID */}
+            {/* Staff ID */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                User ID <span className="text-slate-300 normal-case font-normal">(used to login)</span>
+                Staff ID <span className="text-slate-300 normal-case font-normal">(used to login)</span>
               </label>
               <div className="relative">
                 <Hash size={14} className="absolute left-3.5 top-3.5 text-slate-400" />
@@ -205,12 +206,19 @@ export default function StaffManagementPage() {
               <div className="relative">
                 <KeyRound size={14} className="absolute left-3.5 top-3.5 text-slate-400" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 transition-all"
-                  placeholder="e.g. staff@2025"
+                  className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 transition-all"
+                  placeholder="••••••••"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
 
@@ -235,7 +243,7 @@ export default function StaffManagementPage() {
           {users.length > 0 && (
             <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-100 grid grid-cols-4 gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
               <span>Name</span>
-              <span>User ID</span>
+              <span>Staff ID</span>
               <span>Phone</span>
               <span>Password</span>
             </div>

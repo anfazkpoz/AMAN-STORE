@@ -23,6 +23,18 @@ export async function POST(req: Request) {
   }
 }
 
+export async function PUT(req: Request) {
+  try {
+    await dbConnect();
+    const body = await req.json();
+    const { id, ...updateData } = body;
+    const account = await Account.findByIdAndUpdate(id, updateData, { new: true });
+    return NextResponse.json(account);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: Request) {
   try {
     await dbConnect();

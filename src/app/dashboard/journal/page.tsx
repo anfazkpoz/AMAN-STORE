@@ -2,15 +2,17 @@
 
 import { useAccounting } from '@/lib/AccountingContext';
 import { formatDate } from '@/lib/formatDate';
-import { Plus, ArrowRight, FileText, Trash2 } from 'lucide-react';
+import { Plus, ArrowRight, FileText, Trash2, Pencil } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { User } from '@/lib/types';
+import { useRouter } from 'next/navigation';
 
 export default function JournalListPage() {
   const { journalEntries, accounts, deleteJournalEntry } = useAccounting();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const userStr = sessionStorage.getItem("aman_store_current_user");
@@ -98,13 +100,22 @@ export default function JournalListPage() {
                       </button>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => setConfirmDeleteId(entry.id)}
-                      className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl"
-                      title="Delete journal entry"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => router.push(`/dashboard/journal/new?edit=${entry.id}`)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl"
+                        title="Edit journal entry"
+                      >
+                        <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(entry.id)}
+                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl"
+                        title="Delete journal entry"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

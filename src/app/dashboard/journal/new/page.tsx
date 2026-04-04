@@ -2,15 +2,17 @@
 
 import React, { useState } from 'react';
 import { useAccounting } from '@/lib/AccountingContext';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Plus, Trash2, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import Link from 'next/link';
 import { JournalLine, AccountType, User } from '@/lib/types';
 import { useEffect } from 'react';
 
 export default function NewJournalEntryPage() {
-  const { accounts, debtors, addJournalEntry, addAccount, addDebtor } = useAccounting();
+  const { accounts, debtors, addJournalEntry, updateJournalEntry, addAccount, addDebtor, journalEntries } = useAccounting();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const editId = searchParams.get('edit');
 
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [narration, setNarration] = useState('');
@@ -24,10 +26,21 @@ export default function NewJournalEntryPage() {
   const [activeLineId, setActiveLineId] = useState<string | null>(null);
   
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  
   useEffect(() => {
     const userStr = sessionStorage.getItem("aman_store_current_user");
     if (userStr) setCurrentUser(JSON.parse(userStr));
-  }, []);
+
+    if (editId && journalEntries.length > 0) {
+      const entry = journalEntries.find(e => e.id === editId);
+      if (entry) {
+        setDate(entry.date);
+        setNarration(entry.narration);
+        setLf(entry.lf || '');
+        setLines(entry.lines.map(l => ({ ...l, id: l.id || Math.random().toString() })));
+      }
+    }
+  }, [editId, journalEntries]);
 
   // Add Account Modal State
   const [showAddAccount, setShowAddAccount] = useState(false);
@@ -75,21 +88,27 @@ export default function NewJournalEntryPage() {
       return;
     }
 
-    addJournalEntry({
+    const entryData = {
       date,
       narration,
       lf,
       lines: lines.map(l => ({ ...l, amount: Number(l.amount) })),
       createdBy: currentUser?.name || 'System'
-    });
+    };
+
+    if (editId) {
+      updateJournalEntry({ id: editId, ...entryData } as any);
+    } else {
+      addJournalEntry(entryData);
+    }
 
     router.push('/dashboard/journal');
   };
 
-  const handleAddAccount = (e: React.FormEvent) => {
+  const handleAddAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newAccName.trim()) return;
-    const newAcc = addAccount({
+    const newAcc = await addAccount({
       name: newAccName,
       type: newAccType,
       balanceType: newAccBalanceType
@@ -100,10 +119,10 @@ export default function NewJournalEntryPage() {
     setActiveLineId(null);
   };
 
-  const handleAddDebtor = (e: React.FormEvent) => {
+  const handleAddDebtor = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newDebtorName.trim()) return;
-    const newDebtorObj = addDebtor({
+    const newDebtorObj = await addDebtor({
       name: newDebtorName,
       mobileNumber: newDebtorPhone,
     });
@@ -122,8 +141,12 @@ export default function NewJournalEntryPage() {
           <ArrowLeft size={20} className="text-slate-600" />
         </Link>
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">New Journal Entry</h1>
-          <p className="text-sm text-slate-500">Record a standard double-entry transaction</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">
+            {editId ? 'Edit Journal Entry' : 'New Journal Entry'}
+          </h1>
+          <p className="text-sm text-slate-500">
+            {editId ? 'Modify an existing transaction record' : 'Record a standard double-entry transaction'}
+          </p>
         </div>
       </div>
 

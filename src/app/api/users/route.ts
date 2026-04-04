@@ -65,6 +65,41 @@ export async function POST(req: Request) {
   }
 }
 
+export async function PUT(req: Request) {
+  try {
+    await dbConnect();
+    const body = await req.json();
+    const { id, ...updateData } = body;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    // Sync student related changes if name/batch/phone changes
+    if (user.role === 'Student' && user.debtorId) {
+       const dUpdate: any = {};
+       if (updateData.name) dUpdate.name = updateData.name;
+       if (updateData.batch) dUpdate.batch = updateData.batch;
+       if (updateData.phone) dUpdate.mobileNumber = updateData.phone;
+
+       if (Object.keys(dUpdate).length > 0) {
+          const debtor = await Debtor.findByIdAndUpdate(user.debtorId, dUpdate, { new: true });
+          if (updateData.name && debtor) {
+             await Account.findByIdAndUpdate(debtor.accountId, { 
+               name: `${updateData.name.trim()} A/c` 
+             });
+          }
+       }
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(id, updateData, { new: true });
+    return NextResponse.json(updatedUser);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: Request) {
   try {
     await dbConnect();

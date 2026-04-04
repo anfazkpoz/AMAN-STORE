@@ -11,11 +11,19 @@ export default function DashboardPage() {
   const [studentUsers, setStudentUsers] = useState<UserType[]>([]);
 
   useEffect(() => {
-    const usersStr = localStorage.getItem('aman_store_users');
-    if (usersStr) {
-      const allUsers: UserType[] = JSON.parse(usersStr);
-      setStudentUsers(allUsers.filter(u => u.role === 'Student'));
-    }
+    const fetchStudents = async () => {
+      try {
+        const res = await fetch('/api/users?role=Student');
+        if (res.ok) {
+          const data = await res.json();
+          const normalized = Array.isArray(data) ? data.map((u: any) => ({ ...u, id: u._id })) : [];
+          setStudentUsers(normalized);
+        }
+      } catch (err) {
+        console.error("Failed to fetch students:", err);
+      }
+    };
+    fetchStudents();
   }, []);
 
   const totalSales = accounts.find(a => a.id === '4')?.balance || 0;

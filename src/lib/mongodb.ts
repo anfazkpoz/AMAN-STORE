@@ -27,11 +27,26 @@ async function dbConnect() {
       bufferCommands: false,
     };
 
+    const sanitizedUri = MONGODB_URI?.replace(/\/\/.*:.*@/, '//****:****@');
+    console.log(`Connecting to MongoDB... (${sanitizedUri?.substring(0, 60)}...)`);
+    
     cached.promise = mongoose.connect(MONGODB_URI!, opts).then((mongoose) => {
+      console.log("✓ Connected to MongoDB Atlas");
       return mongoose;
+    }).catch((err) => {
+      console.error("✗ MongoDB connection error:", err.message);
+      cached.promise = null; // Clear failing promise to allow retry on next call
+      throw err;
     });
   }
-  cached.conn = await cached.promise;
+  
+  try {
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    throw e;
+  }
+  
   return cached.conn;
 }
 

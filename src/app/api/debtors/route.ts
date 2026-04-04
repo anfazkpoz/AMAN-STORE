@@ -37,6 +37,31 @@ export async function POST(req: Request) {
   }
 }
 
+export async function PUT(req: Request) {
+  try {
+    await dbConnect();
+    const body = await req.json();
+    const { id, ...updateData } = body;
+
+    const debtor = await Debtor.findById(id);
+    if (!debtor) {
+      return NextResponse.json({ error: "Debtor not found" }, { status: 404 });
+    }
+
+    // If name changed, update linked account name too
+    if (updateData.name && updateData.name !== debtor.name) {
+       await Account.findByIdAndUpdate(debtor.accountId, { 
+         name: `${updateData.name.trim()} A/c` 
+       });
+    }
+
+    const updatedDebtor = await Debtor.findByIdAndUpdate(id, updateData, { new: true });
+    return NextResponse.json(updatedDebtor);
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+}
+
 export async function DELETE(req: Request) {
   try {
     await dbConnect();

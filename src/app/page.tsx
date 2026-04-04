@@ -1,17 +1,18 @@
 "use client";
 
-import { Store, KeyRound, Phone, AlertCircle, User, ArrowRight, MoreVertical, ShieldCheck, UserCog, GraduationCap } from "lucide-react";
+import { Store, KeyRound, Phone, AlertCircle, User, ArrowRight, MoreVertical, ShieldCheck, UserCog, GraduationCap, Eye, EyeOff } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Batch, User as UserType } from "@/lib/types";
 import { useAccounting } from "@/lib/AccountingContext";
 
-const BATCHES: Batch[] = ['JD1', 'JD2', 'HS1', 'HS2', 'BS1', 'BS2', 'BS3', 'BS4', 'BS5'];
+const BATCHES: Batch[] = ['JD1', 'JD2', 'JD3', 'HS1', 'HS2', 'BS1', 'BS2', 'BS3', 'BS4', 'BS5'];
 
 export default function AuthPage() {
   const [isRegister, setIsRegister] = useState(false);
   const [loginMode, setLoginMode] = useState<'Student' | 'Admin' | 'Staff'>('Student');
   const [showAdminMenu, setShowAdminMenu] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -19,6 +20,7 @@ export default function AuthPage() {
   const [batch, setBatch] = useState<Batch | "">("");
   
   const [error, setError] = useState("");
+  const [showForgot, setShowForgot] = useState(false);
   const router = useRouter();
   const { reloadData } = useAccounting();
 
@@ -90,7 +92,7 @@ export default function AuthPage() {
 
         if (!res.ok) {
           const errData = await res.json();
-          setError(errData.error || 'Invalid User ID or Password.');
+          setError(errData.error || 'Invalid ID or Password.');
           return;
         }
 
@@ -210,7 +212,7 @@ export default function AuthPage() {
 
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500" htmlFor="phone">
-                {(loginMode === 'Staff' || loginMode === 'Admin') ? 'User ID' : (isRegister ? 'Phone (+91 · 10 digits)' : 'Phone Number')}
+                {loginMode === 'Admin' ? 'User ID' : loginMode === 'Staff' ? 'Staff ID' : (isRegister ? 'Phone (+91 · 10 digits)' : 'Phone Number')}
               </label>
               {isRegister && isStudent ? (
                 <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 transition-all overflow-hidden">
@@ -237,7 +239,7 @@ export default function AuthPage() {
                     type="text" id="phone" value={phone}
                     onChange={(e) => setPhone(e.target.value)}
                     className={`w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 transition-all outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 focus:bg-white ${isStudent ? 'focus:ring-indigo-500 focus:border-indigo-500' : 'focus:ring-slate-600 focus:border-slate-600'}`}
-                    placeholder={loginMode === 'Admin' ? 'anfaz@123' : loginMode === 'Staff' ? 'e.g. aman001' : 'Mobile number'}
+                    placeholder={loginMode === 'Admin' ? 'Enter User ID' : loginMode === 'Staff' ? 'Enter Staff ID' : 'Mobile number'}
                   />
                 </div>
               )}
@@ -250,13 +252,32 @@ export default function AuthPage() {
                   <KeyRound size={14} className="text-slate-400" />
                 </div>
                 <input 
-                  type="password" id="password" value={password}
+                  type={showPassword ? "text" : "password"} id="password" value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 transition-all outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 focus:bg-white ${isStudent ? 'focus:ring-indigo-500 focus:border-indigo-500' : 'focus:ring-slate-600 focus:border-slate-600'}`}
+                  className={`w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 transition-all outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 focus:bg-white ${isStudent ? 'focus:ring-indigo-500 focus:border-indigo-500' : 'focus:ring-slate-600 focus:border-slate-600'}`}
                   placeholder="••••••••"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
               </div>
             </div>
+
+            {!isRegister && (
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => setShowForgot(true)}
+                  className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition-colors"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            )}
 
             <button 
               type="submit" 
@@ -283,6 +304,25 @@ export default function AuthPage() {
           )}
         </div>
       </div>
+      {showForgot && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-6 animate-in fade-in transition-all">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden p-8 text-center animate-in zoom-in-95 duration-300">
+            <div className="w-20 h-20 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
+               <ShieldCheck size={40} />
+            </div>
+            <h2 className="text-2xl font-black text-slate-800 tracking-tight mb-3">Forgot Password?</h2>
+            <p className="text-slate-500 font-bold leading-relaxed mb-8">
+               For security reasons, please contact the <span className="text-indigo-600">Aman Store Administrator</span> to reset your password or recover your account access.
+            </p>
+            <button 
+               onClick={() => setShowForgot(false)}
+               className="w-full py-4 bg-slate-800 hover:bg-slate-900 text-white font-black rounded-2xl shadow-xl transition-all active:scale-[0.98]"
+            >
+               I Understand
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

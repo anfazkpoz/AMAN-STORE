@@ -1,6 +1,6 @@
 export type AccountType = 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
 export type Role = 'Admin' | 'Staff' | 'Student';
-export type Batch = 'JD1' | 'JD2' | 'HS1' | 'HS2' | 'BS1' | 'BS2' | 'BS3' | 'BS4' | 'BS5';
+export type Batch = 'JD1' | 'JD2' | 'JD3' | 'HS1' | 'HS2' | 'BS1' | 'BS2' | 'BS3' | 'BS4' | 'BS5';
 
 export interface User {
   id: string;

@@ -1,7 +1,7 @@
 import mongoose from 'mongoose';
 
 const JournalLineSchema = new mongoose.Schema({
-  accountId: { type: mongoose.Schema.Types.ObjectId, ref: 'Account', required: true },
+  accountId: { type: String, ref: 'Account', required: true },
   type: { type: String, enum: ['Debit', 'Credit'], required: true },
   amount: { type: Number, required: true },
 });

@@ -278,8 +278,8 @@ export default function ReportsPage() {
   }, [trialBalance, expenses, revenues, assets, liabilities, equity, totalDr, totalCr, netProfit, totalAssets, totalLiabAndEquity]);
 
   return (
-    <div className="p-4 sm:p-8 max-w-5xl mx-auto pb-24">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 pt-4 gap-4">
+    <div className="p-4 sm:p-8 max-w-5xl mx-auto pb-24 print:p-0 print:m-0">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 pt-4 gap-4 print:hidden">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <FileText size={24} className="text-primary" />
@@ -536,11 +536,11 @@ export default function ReportsPage() {
               </button>
             </div>
 
-            {/* Print Header (Only visible on print) */}
-            <div className="hidden print:block text-center p-8 border-b-2 border-slate-800 mb-6">
-              <h1 className="text-3xl font-black text-slate-900 tracking-tight">AMAN STORE</h1>
-              <h2 className="text-xl font-bold text-slate-700 mt-2 uppercase tracking-wide">Statement of Student Balances</h2>
-              <p className="text-sm font-medium text-slate-500 mt-1">Generated: {getTodayFormatted()}</p>
+            {/* Print Header (Only visible on print) — Compact */}
+            <div className="hidden print:block text-center p-4 border-b-2 border-slate-800 mb-4">
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">AMAN STORE</h1>
+              <h2 className="text-lg font-bold text-slate-700 mt-1 uppercase tracking-wide">Statement of Student Balances</h2>
+              <p className="text-xs font-medium text-slate-500 mt-0.5">Generated: {getTodayFormatted()}</p>
             </div>
 
             <div className="overflow-x-auto p-0 sm:p-6 print:p-0">

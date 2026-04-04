@@ -1,5 +1,6 @@
 import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
+import Account from "@/models/Account";
 import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
@@ -7,7 +8,7 @@ export async function POST(req: Request) {
     await dbConnect();
     const { phone, password, role } = await req.json();
 
-    // Check if we need to seed the default admin
+    // 1. Seed Default Users if none exist
     const adminCount = await User.countDocuments({ role: 'Admin' });
     if (adminCount === 0) {
       await User.create({
@@ -28,6 +29,20 @@ export async function POST(req: Request) {
         role: "Staff"
       });
       console.log("Seeded default staff");
+    }
+
+    // 2. Seed Default Accounts if none exist
+    const accountCount = await Account.countDocuments();
+    if (accountCount === 0) {
+      const defaultAccounts = [
+        { _id: '1', name: 'Cash A/c', type: 'Asset', balanceType: 'Debit', balance: 0 },
+        { _id: '2', name: 'Bank A/c', type: 'Asset', balanceType: 'Debit', balance: 0 },
+        { _id: '3', name: 'Capital A/c', type: 'Equity', balanceType: 'Credit', balance: 0 },
+        { _id: '4', name: 'Sales A/c', type: 'Revenue', balanceType: 'Credit', balance: 0 },
+        { _id: '5', name: 'Purchases A/c', type: 'Expense', balanceType: 'Debit', balance: 0 },
+      ];
+      await Account.insertMany(defaultAccounts);
+      console.log("Seeded default accounts (1-5)");
     }
 
     const user = await User.findOne({ phone, password, role });
