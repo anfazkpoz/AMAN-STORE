@@ -20,14 +20,24 @@ export default function StaffManagementPage() {
   const [success, setSuccess] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
+  const fetchStaff = async () => {
+    try {
+      const res = await fetch('/api/users?role=Staff');
+      if (res.ok) {
+        const data = await res.json();
+        const normalized = data.map((u: any) => ({ ...u, id: u._id }));
+        setUsers(normalized);
+      }
+    } catch (err) {
+      console.error("Failed to fetch staff:", err);
+    }
+  };
+
   useEffect(() => {
-    const usersStr = localStorage.getItem("aman_store_users");
-    if (usersStr) setUsers(JSON.parse(usersStr));
+    fetchStaff();
   }, []);
 
-  const staffMembers = users.filter(u => u.role === "Staff");
-
-  const handleAddStaff = (e: React.FormEvent) => {
+  const handleAddStaff = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -45,40 +55,57 @@ export default function StaffManagementPage() {
       return;
     }
 
-    // User ID must be unique (it's used as login identifier)
-    if (users.find(u => u.phone === cleanUserId)) {
-      setError("A staff member with this User ID already exists.");
-      return;
+    try {
+      const res = await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: name.trim(),
+          phone: cleanUserId,   // User ID used for login (stored in phone field in DB)
+          mobile: cleanPhone,   // Actual mobile number
+          password: password.trim(),
+          role: "Staff",
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        setError(errData.error || "Failed to add staff.");
+        return;
+      }
+
+      const data = await res.json();
+      const newStaff = { ...data.user, id: data.user._id };
+      
+      setUsers(prev => [...prev, newStaff]);
+
+      // Reset form
+      setName("");
+      setUserId("");
+      setPhone("");
+      setPassword("");
+
+      setSuccess(`Staff "${newStaff.name}" added. User ID: ${cleanUserId}`);
+      setTimeout(() => setSuccess(""), 5000);
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred.");
     }
-
-    const newStaff: User = {
-      id: `staff_${Date.now()}`,
-      name: name.trim(),
-      phone: cleanUserId,   // User ID used for login (stored in phone field)
-      mobile: cleanPhone,   // Actual mobile number
-      password: password.trim(),
-      role: "Staff",
-    };
-
-    const updatedUsers = [...users, newStaff];
-    localStorage.setItem("aman_store_users", JSON.stringify(updatedUsers));
-    setUsers(updatedUsers);
-
-    // Reset form
-    setName("");
-    setUserId("");
-    setPhone("");
-    setPassword("");
-
-    setSuccess(`Staff "${newStaff.name}" added. User ID: ${cleanUserId}`);
-    setTimeout(() => setSuccess(""), 5000);
   };
 
-  const handleRemoveStaff = (staffId: string) => {
-    const updatedUsers = users.filter(u => u.id !== staffId);
-    localStorage.setItem("aman_store_users", JSON.stringify(updatedUsers));
-    setUsers(updatedUsers);
-    setConfirmDeleteId(null);
+  const handleRemoveStaff = async (staffId: string) => {
+    try {
+      const res = await fetch('/api/users', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: staffId })
+      });
+      if (res.ok) {
+        setUsers(prev => prev.filter(u => u.id !== staffId));
+        setConfirmDeleteId(null);
+      }
+    } catch (err) {
+      console.error("Failed to remove staff:", err);
+    }
   };
 
   return (
@@ -154,7 +181,6 @@ export default function StaffManagementPage() {
                 Phone Number <span className="text-slate-300 normal-case font-normal">(+91 · 10 digits)</span>
               </label>
               <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 transition-all overflow-hidden">
-                {/* Fixed +91 prefix */}
                 <div className="flex items-center gap-1.5 pl-3 pr-2 border-r border-slate-200 select-none shrink-0 h-full py-2.5">
                   <Phone size={13} className="text-slate-400" />
                   <span className="text-sm font-bold text-slate-500">+91</span>
@@ -202,12 +228,11 @@ export default function StaffManagementPage() {
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
             <h2 className="font-bold text-slate-800 text-sm">Active Staff Accounts</h2>
             <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg">
-              {staffMembers.length} {staffMembers.length === 1 ? "member" : "members"}
+              {users.length} {users.length === 1 ? "member" : "members"}
             </span>
           </div>
 
-          {/* Column headers */}
-          {staffMembers.length > 0 && (
+          {users.length > 0 && (
             <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-100 grid grid-cols-4 gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
               <span>Name</span>
               <span>User ID</span>
@@ -217,7 +242,7 @@ export default function StaffManagementPage() {
           )}
 
           <div className="divide-y divide-slate-50">
-            {staffMembers.length === 0 ? (
+            {users.length === 0 ? (
               <div className="p-12 text-center">
                 <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
                   <UserCog size={22} className="text-slate-400" />
@@ -226,16 +251,14 @@ export default function StaffManagementPage() {
                 <p className="text-xs text-slate-400 mt-1">Add one using the form.</p>
               </div>
             ) : (
-              staffMembers.map(staff => (
+              users.map(staff => (
                 <div
                   key={staff.id}
                   className={`px-5 py-3.5 flex items-center justify-between hover:bg-slate-50/60 transition-colors group ${
                     confirmDeleteId === staff.id ? "bg-red-50/40" : ""
                   }`}
                 >
-                  {/* 4 data columns */}
                   <div className="grid grid-cols-4 gap-2 flex-1 items-center text-sm mr-3">
-                    {/* Name */}
                     <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0">
                         {staff.name.charAt(0).toUpperCase()}
@@ -243,23 +266,19 @@ export default function StaffManagementPage() {
                       <span className="font-semibold text-slate-800 text-xs truncate">{staff.name}</span>
                     </div>
 
-                    {/* User ID */}
                     <span className="font-mono text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md truncate w-fit">
                       {staff.phone}
                     </span>
 
-                    {/* Phone */}
                     <span className="font-mono text-xs text-slate-500">
                       {staff.mobile || "—"}
                     </span>
 
-                    {/* Password */}
                     <span className="font-mono text-xs font-bold text-slate-700 tracking-wider">
                       {staff.password || "—"}
                     </span>
                   </div>
 
-                  {/* Delete control */}
                   <div className="flex items-center gap-1.5 shrink-0">
                     {confirmDeleteId === staff.id ? (
                       <div className="flex items-center gap-1">

@@ -22,33 +22,7 @@ export default function AuthPage() {
   const router = useRouter();
   const { reloadData } = useAccounting();
 
-  // Initialize Default Admin & Staff
-  useEffect(() => {
-    const usersStr = localStorage.getItem('aman_store_users');
-    let usersList: UserType[] = usersStr ? JSON.parse(usersStr) : [];
-    
-    // Check if the admin is naturally missing or has the wrong default pass from a previous iteration
-    if (!usersList.find(u => u.role === 'Admin')) {
-      const defaultAdmin: UserType = { id: 'admin_1', phone: "anfaz@123", password: "!@#anfaz", name: "Main Admin", role: "Admin" };
-      usersList.push(defaultAdmin);
-    } else {
-      // Ensure the admin has the exact configured credentials
-      const adminIdx = usersList.findIndex(u => u.role === 'Admin');
-      if (adminIdx !== -1) {
-         usersList[adminIdx].phone = "anfaz@123";
-         usersList[adminIdx].password = "!@#anfaz";
-      }
-    }
-
-    if (!usersList.find(u => u.role === 'Staff')) {
-      const defaultStaff: UserType = { id: 'staff_1', phone: "1234567890", password: "staff", name: "Staff Member", role: "Staff" };
-      usersList.push(defaultStaff);
-    }
-    
-    localStorage.setItem('aman_store_users', JSON.stringify(usersList));
-  }, []);
-
-  const handleSubmit = (e?: React.FormEvent) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     setError("");
 
@@ -74,80 +48,63 @@ export default function AuthPage() {
       return;
     }
 
-    const usersStr = localStorage.getItem('aman_store_users');
-    const users: UserType[] = usersStr ? JSON.parse(usersStr) : [];
+    try {
+      if (isRegister) {
+        const res = await fetch('/api/users', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            name: name.trim(), 
+            phone: cleanPhone, 
+            password: cleanPassword, 
+            role: 'Student',
+            batch: batch as Batch
+          })
+        });
 
-    if (isRegister) {
-      if (users.find(u => u.phone === cleanPhone)) {
-        setError("An account with this phone number already exists.");
-        return;
+        if (!res.ok) {
+          const errData = await res.json();
+          setError(errData.error || "Registration failed.");
+          return;
+        }
+
+        const data = await res.json();
+        const newUser: UserType = {
+          ...data.user,
+          id: data.user._id
+        };
+
+        // Update Context state immediately before redirect
+        await reloadData();
+        
+        // Auto Sign-In
+        sessionStorage.setItem('aman_store_current_user', JSON.stringify(newUser));
+        router.push("/profile");
+
+      } else {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: cleanPhone, password: cleanPassword, role: loginMode })
+        });
+
+        if (!res.ok) {
+          const errData = await res.json();
+          setError(errData.error || 'Invalid User ID or Password.');
+          return;
+        }
+
+        const data = await res.json();
+        const user = { ...data.user, id: data.user._id };
+        
+        sessionStorage.setItem('aman_store_current_user', JSON.stringify(user));
+        
+        if (user.role === 'Admin') router.push("/dashboard");
+        else if (user.role === 'Staff') router.push("/dashboard/debtors");
+        else router.push("/profile");
       }
-      
-      const userId = `student_${Date.now()}`;
-      // Create Ledger Account and Debtor
-      const timestamp = Date.now().toString();
-      const newLedgerAccount = {
-        id: `acc_${timestamp}`,
-        name: `${name.trim()} A/c`,
-        type: 'Asset',
-        balanceType: 'Debit',
-        balance: 0,
-      };
-      
-      const newDebtor = {
-        id: `debtor_${timestamp}`,
-        accountId: newLedgerAccount.id,
-        name: name.trim(),
-        mobileNumber: cleanPhone,
-        batch: batch as Batch,
-        currentBalance: 0,
-      };
-
-      const newUser: UserType = { 
-        id: userId, 
-        phone: cleanPhone, 
-        password: cleanPassword, 
-        name: name.trim(),
-        role: 'Student',
-        batch: batch as Batch,
-        debtorId: newDebtor.id
-      };
-      
-      users.push(newUser);
-      localStorage.setItem('aman_store_users', JSON.stringify(users));
-
-      // Add to Context equivalents
-      const accountsStr = localStorage.getItem('aman_accounts');
-      const accountsList = accountsStr ? JSON.parse(accountsStr) : [];
-      accountsList.push(newLedgerAccount);
-      localStorage.setItem('aman_accounts', JSON.stringify(accountsList));
-
-      const debtorsStr = localStorage.getItem('aman_debtors');
-      const debtorsList = debtorsStr ? JSON.parse(debtorsStr) : [];
-      debtorsList.push(newDebtor);
-      localStorage.setItem('aman_debtors', JSON.stringify(debtorsList));
-      
-      // Update Context state immediately before redirect
-      reloadData();
-      
-      // Auto Sign-In
-      sessionStorage.setItem('aman_store_current_user', JSON.stringify(newUser));
-      router.push("/profile");
-
-    } else {
-      const user = users.find(u => u.phone === cleanPhone && u.password === cleanPassword && u.role === loginMode);
-      if (!user) {
-        if (loginMode === 'Admin') setError('Invalid User ID or Password.');
-        else if (loginMode === 'Staff') setError('Invalid User ID or Password.');
-        else setError('Invalid phone or password for Student login.');
-        return;
-      }
-      
-      sessionStorage.setItem('aman_store_current_user', JSON.stringify(user));
-      
-      if (user.role === 'Admin') router.push("/dashboard");
-      else if (user.role === 'Staff') router.push("/dashboard/debtors");
-      else router.push("/profile");
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred.");
     }
   };
 
@@ -155,7 +112,6 @@ export default function AuthPage() {
 
   return (
     <div className={`h-screen flex items-center justify-center p-3 transition-colors duration-500 overflow-hidden ${isStudent ? 'bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500' : 'bg-slate-50'}`}>
-      
       {/* Hidden Admin/Staff Toggle Menu */}
       <div className="absolute top-3 right-3 z-50">
         <div className="relative">
@@ -192,8 +148,7 @@ export default function AuthPage() {
       </div>
 
       <div className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden backdrop-blur-md transition-all duration-500 ${isStudent ? 'bg-white/90 border border-white/40' : 'bg-white border border-slate-200'}`}>
-        
-        {/* Header Section — compact */}
+        {/* Header Section */}
         <div className={`px-5 py-4 flex flex-col items-center text-center relative overflow-hidden ${isStudent ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' : 'bg-slate-800 text-white'}`}>
           <div className="bg-white/20 p-2.5 rounded-full mb-1.5 shadow-inner relative z-10 backdrop-blur-sm">
             <Store size={26} className="text-white drop-shadow-sm" />
@@ -204,7 +159,6 @@ export default function AuthPage() {
           </p>
         </div>
 
-        {/* Form Section — compact */}
         <div className="px-5 py-4">
           <div className="mb-3">
             <h2 className="text-base font-bold text-slate-800 tracking-tight">
@@ -223,11 +177,8 @@ export default function AuthPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-2.5">
-
-            {/* Registration-only fields */}
             {isRegister && isStudent && (
               <div className="space-y-2.5 animate-in slide-in-from-top-4 fade-in duration-300">
-                {/* Full Name */}
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500" htmlFor="name">Full Name</label>
                   <div className="relative">
@@ -243,7 +194,6 @@ export default function AuthPage() {
                   </div>
                 </div>
 
-                {/* Batch */}
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500" htmlFor="batch">Batch</label>
                   <select
@@ -258,7 +208,6 @@ export default function AuthPage() {
               </div>
             )}
 
-            {/* Phone / User ID */}
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500" htmlFor="phone">
                 {(loginMode === 'Staff' || loginMode === 'Admin') ? 'User ID' : (isRegister ? 'Phone (+91 · 10 digits)' : 'Phone Number')}
@@ -294,7 +243,6 @@ export default function AuthPage() {
               )}
             </div>
 
-            {/* Password */}
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500" htmlFor="password">Password</label>
               <div className="relative">
@@ -319,7 +267,6 @@ export default function AuthPage() {
             </button>
           </form>
 
-          {/* Toggle Register/Login (Only for Students) */}
           {isStudent && (
             <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-center">
               <span className="text-xs font-medium text-slate-500 mr-2">
