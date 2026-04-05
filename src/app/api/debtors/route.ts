@@ -1,3 +1,4 @@
+export const dynamic = "force-dynamic";
 import dbConnect from "@/lib/mongodb";
 import Debtor from "@/models/Debtor";
 import Account from "@/models/Account";
