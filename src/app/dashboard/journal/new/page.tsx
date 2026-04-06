@@ -70,7 +70,7 @@ export default function NewJournalEntryPage() {
   const totalCredit = lines.filter(l => l.type === 'Credit').reduce((sum, l) => sum + (Number(l.amount) || 0), 0);
   const isBalanced = totalDebit === totalCredit && totalDebit > 0;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -97,9 +97,9 @@ export default function NewJournalEntryPage() {
     };
 
     if (editId) {
-      updateJournalEntry({ id: editId, ...entryData } as any);
+      await updateJournalEntry({ id: editId, ...entryData } as any);
     } else {
-      addJournalEntry(entryData);
+      await addJournalEntry(entryData);
     }
 
     router.push('/dashboard/journal');

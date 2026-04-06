@@ -43,18 +43,12 @@ export default function StaffManagementPage() {
     setError("");
     setSuccess("");
 
-    if (!name.trim() || !userId.trim() || !phone.trim() || !password.trim()) {
+    if (!name.trim() || !userId.trim() || !password.trim()) {
       setError("Please fill in all fields.");
       return;
     }
 
     const cleanUserId = userId.trim().toLowerCase().replace(/\s+/g, '');
-    const cleanPhone = phone.replace(/\s+/g, '').replace(/[^0-9]/g, '');
-
-    if (!/^[0-9]{10}$/.test(cleanPhone)) {
-      setError("Phone must be exactly 10 digits after +91.");
-      return;
-    }
 
     try {
       const res = await fetch('/api/users', {
@@ -63,7 +57,6 @@ export default function StaffManagementPage() {
         body: JSON.stringify({
           name: name.trim(),
           phone: cleanUserId,   // User ID used for login (stored in phone field in DB)
-          mobile: cleanPhone,   // Actual mobile number
           password: password.trim(),
           role: "Staff",
         })
@@ -83,7 +76,6 @@ export default function StaffManagementPage() {
       // Reset form
       setName("");
       setUserId("");
-      setPhone("");
       setPassword("");
 
       setSuccess(`Staff "${newStaff.name}" added. Staff ID: ${cleanUserId}`);
@@ -110,7 +102,7 @@ export default function StaffManagementPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 max-w-5xl mx-auto pb-24">
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto pb-24 text-left">
 
       {/* Page Header */}
       <div className="pt-4 mb-6">
@@ -118,7 +110,7 @@ export default function StaffManagementPage() {
         <p className="text-sm text-slate-500 mt-0.5">Add and manage staff portal access</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-5 text-left">
 
         {/* ── Add Staff Form ── */}
         <div className="md:col-span-2 bg-white border border-slate-100 rounded-2xl shadow-sm p-5 self-start">
@@ -153,8 +145,8 @@ export default function StaffManagementPage() {
                   type="text"
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 transition-all"
-                  placeholder="e.g. Aman Khan"
+                  className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 transition-all uppercase"
+                  placeholder="ENTER STAFF NAME"
                 />
               </div>
             </div>
@@ -170,30 +162,8 @@ export default function StaffManagementPage() {
                   type="text"
                   value={userId}
                   onChange={e => setUserId(e.target.value.toLowerCase().replace(/\s+/g, ''))}
-                  className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 transition-all font-mono tracking-wide"
-                  placeholder="e.g. aman001"
-                />
-              </div>
-            </div>
-
-            {/* Phone Number */}
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
-                Phone Number <span className="text-slate-300 normal-case font-normal">(+91 · 10 digits)</span>
-              </label>
-              <div className="flex items-center bg-slate-50 border border-slate-200 rounded-xl focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 transition-all overflow-hidden">
-                <div className="flex items-center gap-1.5 pl-3 pr-2 border-r border-slate-200 select-none shrink-0 h-full py-2.5">
-                  <Phone size={13} className="text-slate-400" />
-                  <span className="text-sm font-bold text-slate-500">+91</span>
-                </div>
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  maxLength={10}
-                  value={phone}
-                  onChange={e => setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
-                  className="flex-1 px-3 py-2.5 bg-transparent outline-none text-sm font-semibold text-slate-800 placeholder-slate-300"
-                  placeholder="98765 43210"
+                  className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 transition-all font-mono tracking-wide uppercase"
+                  placeholder="CREATE STAFF ID"
                 />
               </div>
             </div>
@@ -209,8 +179,8 @@ export default function StaffManagementPage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={e => setPassword(e.target.value)}
-                  className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 transition-all"
-                  placeholder="••••••••"
+                  className="w-full pl-9 pr-10 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 transition-all uppercase"
+                  placeholder="CREATE PASSWORD"
                 />
                 <button
                   type="button"
@@ -241,10 +211,9 @@ export default function StaffManagementPage() {
           </div>
 
           {users.length > 0 && (
-            <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-100 grid grid-cols-4 gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+            <div className="px-5 py-2.5 bg-slate-50 border-b border-slate-100 grid grid-cols-3 gap-2 text-[10px] font-bold uppercase tracking-wider text-slate-400">
               <span>Name</span>
               <span>Staff ID</span>
-              <span>Phone</span>
               <span>Password</span>
             </div>
           )}
@@ -266,7 +235,7 @@ export default function StaffManagementPage() {
                     confirmDeleteId === staff.id ? "bg-red-50/40" : ""
                   }`}
                 >
-                  <div className="grid grid-cols-4 gap-2 flex-1 items-center text-sm mr-3">
+                  <div className="grid grid-cols-3 gap-2 flex-1 items-center text-sm mr-3">
                     <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold text-xs shrink-0">
                         {staff.name.charAt(0).toUpperCase()}
@@ -276,10 +245,6 @@ export default function StaffManagementPage() {
 
                     <span className="font-mono text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md truncate w-fit">
                       {staff.phone}
-                    </span>
-
-                    <span className="font-mono text-xs text-slate-500">
-                      {staff.mobile || "—"}
                     </span>
 
                     <span className="font-mono text-xs font-bold text-slate-700 tracking-wider">

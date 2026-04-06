@@ -2,13 +2,18 @@
 
 import { useAccounting } from "@/lib/AccountingContext";
 import { User as UserType } from "@/lib/types";
-import { BookOpen, Library, TrendingUp, Users, KeyRound, ArrowRight, BarChart2, Wallet, Receipt, Landmark } from "lucide-react";
+import { 
+  BookOpen, Library, TrendingUp, Users, KeyRound, 
+  ArrowRight, BarChart2, Wallet, Receipt, Landmark,
+  Eye, EyeOff
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
 export default function DashboardPage() {
-  const { accounts, journalEntries } = useAccounting();
+  const { accounts } = useAccounting();
   const [studentUsers, setStudentUsers] = useState<UserType[]>([]);
+  const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -25,6 +30,10 @@ export default function DashboardPage() {
     };
     fetchStudents();
   }, []);
+
+  const togglePassword = (id: string) => {
+    setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   const totalSales = accounts.find(a => a.id === '4')?.balance || 0;
   const cashInHand = accounts.find(a => a.id === '1')?.balance || 0;
@@ -108,8 +117,8 @@ export default function DashboardPage() {
 
       {/* Page Title */}
       <div className="pt-4 mb-6">
-        <h1 className="text-xl font-bold text-slate-800 tracking-tight">Overview</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Welcome back — here's your store summary.</p>
+        <h1 className="text-xl font-bold text-slate-800 tracking-tight text-left">Overview</h1>
+        <p className="text-sm text-slate-500 mt-0.5 text-left">Welcome back — here's your store summary.</p>
       </div>
 
       {/* Stats Row */}
@@ -125,7 +134,7 @@ export default function DashboardPage() {
               <div className={`w-10 h-10 ${stat.bg} ${stat.color} rounded-xl flex items-center justify-center shrink-0`}>
                 <stat.icon size={19} />
               </div>
-              <div className="min-w-0">
+              <div className="min-w-0 text-left">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1 truncate">{stat.label}</p>
                 <p className={`text-xl font-black leading-none ${stat.color}`}>{stat.value}</p>
               </div>
@@ -136,13 +145,13 @@ export default function DashboardPage() {
 
       {/* Modules */}
       <div className="mb-2">
-        <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3 px-1">Modules</h2>
+        <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3 px-1 text-left">Modules</h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {modules.map(mod => (
             <Link
               key={mod.title}
               href={mod.href}
-              className="group bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-slate-200 transition-all flex flex-col gap-3"
+              className="group bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-slate-200 transition-all flex flex-col gap-3 text-left"
             >
               <div className={`w-10 h-10 ${mod.bg} ${mod.accent} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform`}>
                 <mod.icon size={20} />
@@ -171,15 +180,15 @@ export default function DashboardPage() {
         <span className="text-[11px] font-semibold text-slate-400">{studentUsers.length} students</span>
       </div>
 
-      <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
+      <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden text-left">
+        <div className="overflow-x-auto text-left">
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-400 uppercase tracking-wider">
               <tr>
-                <th className="px-5 py-3 font-semibold">Name</th>
-                <th className="px-5 py-3 font-semibold">Batch</th>
-                <th className="px-5 py-3 font-semibold">Phone</th>
-                <th className="px-5 py-3 font-semibold">Password</th>
+                <th className="px-5 py-3 font-semibold w-1/4">Name</th>
+                <th className="px-5 py-3 font-semibold w-1/4">Batch</th>
+                <th className="px-5 py-3 font-semibold w-1/4 text-center">Phone</th>
+                <th className="px-5 py-3 font-semibold w-1/4 text-right">Password</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
@@ -192,15 +201,24 @@ export default function DashboardPage() {
               ) : (
                 studentUsers.map(student => (
                   <tr key={student.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="px-5 py-3 font-semibold text-slate-800">{student.name}</td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-3 font-semibold text-slate-800 w-1/4 truncate">{student.name}</td>
+                    <td className="px-5 py-3 w-1/4">
                       <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-[10px] text-indigo-600 uppercase tracking-wider font-bold">
                         {student.batch}
                       </span>
                     </td>
-                    <td className="px-5 py-3 font-mono text-slate-500 text-xs">{student.phone}</td>
-                    <td className="px-5 py-3 font-mono text-xs font-bold text-red-500 tracking-wider">
-                      {student.password}
+                    <td className="px-5 py-3 font-mono text-slate-500 text-xs w-1/4 text-center">{student.phone}</td>
+                    <td className="px-5 py-3 font-mono text-xs font-bold text-red-500 tracking-wider text-right w-1/4">
+                      <div className="flex items-center justify-end gap-2 group/pass">
+                        <span>{showPasswords[student.id] ? student.password : "••••••••"}</span>
+                        <button 
+                          onClick={() => togglePassword(student.id)}
+                          className="p-1 text-slate-300 hover:text-slate-500 hover:bg-slate-100 rounded-md transition-all"
+                          title={showPasswords[student.id] ? "Hide Password" : "Show Password"}
+                        >
+                          {showPasswords[student.id] ? <EyeOff size={14} /> : <Eye size={14} />}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

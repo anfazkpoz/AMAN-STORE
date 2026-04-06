@@ -11,7 +11,7 @@ const JournalEntrySchema = new mongoose.Schema({
   narration: { type: String },
   lf: { type: String },
   lines: [JournalLineSchema],
-  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  createdBy: { type: String },
 }, { timestamps: true });
 
 export default mongoose.models.JournalEntry || mongoose.model('JournalEntry', JournalEntrySchema);

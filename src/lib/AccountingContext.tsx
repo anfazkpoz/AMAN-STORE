@@ -47,7 +47,11 @@ export function AccountingProvider({ children }: { children: React.ReactNode }) 
         : [];
         
       const normEntries = Array.isArray(entriesJson) 
-        ? entriesJson.map((e: any) => ({ ...e, id: e._id })) 
+        ? entriesJson.map((e: any) => ({ 
+            ...e, 
+            id: e._id,
+            lines: Array.isArray(e.lines) ? e.lines.map((l: any) => ({ ...l, id: l._id || l.id })) : []
+          })) 
         : [];
         
       const normDebtors = Array.isArray(debtorsJson) 
