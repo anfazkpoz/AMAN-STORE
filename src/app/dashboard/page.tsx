@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const { accounts } = useAccounting();
   const [studentUsers, setStudentUsers] = useState<UserType[]>([]);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
+  const [isListExpanded, setIsListExpanded] = useState(false);
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -21,8 +22,18 @@ export default function DashboardPage() {
         const res = await fetch('/api/users?role=Student');
         if (res.ok) {
           const data = await res.json();
+          const BATCHES = ['JD1', 'JD2', 'JD3', 'HS1', 'HS2', 'BS1', 'BS2', 'BS3', 'BS4', 'BS5'];
           const normalized = Array.isArray(data) ? data.map((u: any) => ({ ...u, id: u._id })) : [];
-          setStudentUsers(normalized);
+          
+          // Sort by Batch Order and then by Name
+          const sorted = normalized.sort((a, b) => {
+            const idxA = a.batch ? BATCHES.indexOf(a.batch) : -1;
+            const idxB = b.batch ? BATCHES.indexOf(b.batch) : -1;
+            if (idxA !== idxB) return idxA - idxB;
+            return a.name.localeCompare(b.name);
+          });
+          
+          setStudentUsers(sorted);
         }
       } catch (err) {
         console.error("Failed to fetch students:", err);
@@ -199,7 +210,7 @@ export default function DashboardPage() {
                   </td>
                 </tr>
               ) : (
-                studentUsers.map(student => (
+                (isListExpanded ? studentUsers : studentUsers.slice(0, 5)).map(student => (
                   <tr key={student.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-5 py-3 font-semibold text-slate-800 w-1/4 truncate">{student.name}</td>
                     <td className="px-5 py-3 w-1/4">
@@ -226,6 +237,17 @@ export default function DashboardPage() {
             </tbody>
           </table>
         </div>
+        
+        {studentUsers.length > 5 && (
+          <div className="p-3 border-t border-slate-50 bg-slate-50/30 text-center">
+            <button 
+              onClick={() => setIsListExpanded(!isListExpanded)}
+              className="text-[11px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors"
+            >
+              {isListExpanded ? "Show Less" : `See More (${studentUsers.length - 5} more)`}
+            </button>
+          </div>
+        )}
       </div>
 
     </div>

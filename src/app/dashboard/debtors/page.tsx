@@ -35,6 +35,10 @@ export default function DebtorsPage() {
   const [qaMsg, setQaMsg] = useState("");
   const [qaError, setQaError] = useState("");
 
+  // Student Search in Modal
+  const [modalBatch, setModalBatch] = useState<Batch | "">("");
+  const [modalSearch, setModalSearch] = useState("");
+
   useEffect(() => {
     const userStr = sessionStorage.getItem("aman_store_current_user");
     if (!userStr) { router.replace('/'); return; }
@@ -44,12 +48,19 @@ export default function DebtorsPage() {
   }, [router]);
 
   const filteredDebtors = useMemo(() => {
-    return debtors.filter(d => {
-      const matchesSearch = d.name.toLowerCase().includes(search.toLowerCase()) || 
-                            d.mobileNumber.includes(search);
-      const matchesBatch = batchFilter === "All" || d.batch === batchFilter;
-      return matchesSearch && matchesBatch;
-    });
+    return [...debtors]
+      .filter(d => {
+        const matchesSearch = d.name.toLowerCase().includes(search.toLowerCase()) || 
+                              d.mobileNumber.includes(search);
+        const matchesBatch = batchFilter === "All" || d.batch === batchFilter;
+        return matchesSearch && matchesBatch;
+      })
+      .sort((a, b) => {
+        const idxA = a.batch ? BATCHES.indexOf(a.batch) : -1;
+        const idxB = b.batch ? BATCHES.indexOf(b.batch) : -1;
+        if (idxA !== idxB) return idxA - idxB;
+        return a.name.localeCompare(b.name);
+      });
   }, [debtors, search, batchFilter]);
 
   const handleDeleteDebtor = async (e: React.MouseEvent, id: string, name: string) => {
@@ -130,39 +141,44 @@ export default function DebtorsPage() {
   };
 
   return (
-    <div className="p-4 sm:p-8 max-w-4xl mx-auto pb-24 relative">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-8 pt-4 gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-slate-800">Student Debtors</h1>
-          <p className="text-sm text-slate-500 font-medium mt-1">Manage accounts and credit balances</p>
+    <div className="p-0 max-w-4xl mx-auto pb-44 sm:pb-32 relative min-h-screen">
+      {/* Sticky Header - Fixes search and filter at the top */}
+      <div className="sticky top-0 z-[45] bg-slate-50/95 backdrop-blur-md px-4 sm:px-8 py-6 border-b border-slate-200">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-slate-800">Student Debtors</h1>
+            <p className="text-sm text-slate-500 font-medium mt-1">Manage accounts and credit balances</p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <div className="relative flex-1">
+            <Search size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Search by name or phone..." 
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-medium shadow-sm transition-all"
+            />
+          </div>
+          <div className="relative w-full sm:w-48 shrink-0">
+            <Filter size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
+            <select 
+              value={batchFilter}
+              onChange={e => setBatchFilter(e.target.value as Batch | "All")}
+              className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-medium shadow-sm appearance-none cursor-pointer"
+            >
+              <option value="All">All Batches</option>
+              {BATCHES.map(b => (
+                <option key={b} value={b}>{b}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3 mb-6">
-        <div className="relative flex-1">
-          <Search size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
-          <input 
-            type="text" 
-            placeholder="Search by name or phone..." 
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-medium shadow-sm transition-all"
-          />
-        </div>
-        <div className="relative w-full sm:w-48 shrink-0">
-          <Filter size={18} className="absolute left-3.5 top-3.5 text-slate-400" />
-          <select 
-            value={batchFilter}
-            onChange={e => setBatchFilter(e.target.value as Batch | "All")}
-            className="w-full pl-10 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-sm font-medium shadow-sm appearance-none cursor-pointer"
-          >
-            <option value="All">All Batches</option>
-            {BATCHES.map(b => (
-              <option key={b} value={b}>{b}</option>
-            ))}
-          </select>
-        </div>
-      </div>
+      <div className="px-4 sm:px-8 mt-6">
 
       <div className="bg-white border text-left border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-8">
         {filteredDebtors.length === 0 ? (
@@ -242,21 +258,26 @@ export default function DebtorsPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
-        <button 
-          onClick={() => setQuickMode('Debit')}
-          className="flex flex-col items-center justify-center gap-2 bg-white hover:bg-red-50 border-2 border-red-100 text-red-600 py-4 rounded-3xl transition-all shadow-sm group active:scale-[0.98]"
-        >
-          <ArrowUpCircle size={28} className="group-hover:-translate-y-1 transition-transform" />
-          <span className="font-bold text-sm">Add Debit Amount</span>
-        </button>
-        <button 
-          onClick={() => setQuickMode('Credit')}
-          className="flex flex-col items-center justify-center gap-2 bg-white hover:bg-emerald-50 border-2 border-emerald-100 text-emerald-600 py-4 rounded-3xl transition-all shadow-sm group active:scale-[0.98]"
-        >
-          <ArrowDownCircle size={28} className="group-hover:translate-y-1 transition-transform" />
-          <span className="font-bold text-sm">Add Credit Amount</span>
-        </button>
+      </div>
+
+      {/* Fixed Footer - Perfectly centered in the content area */}
+      <div className="fixed bottom-24 md:bottom-8 md:pl-64 left-0 right-0 z-[45] flex justify-center pointer-events-none">
+        <div className="w-full max-w-4xl px-4 sm:px-8 grid grid-cols-2 gap-4 pointer-events-auto">
+          <button 
+            onClick={() => setQuickMode('Debit')}
+            className="flex flex-col items-center justify-center gap-2 bg-white/95 backdrop-blur hover:bg-white border-2 border-red-50 text-red-600 py-3.5 rounded-2xl transition-all shadow-xl group active:scale-[0.98] ring-1 ring-black/[0.03]"
+          >
+            <ArrowUpCircle size={24} className="group-hover:-translate-y-1 transition-transform" />
+            <span className="font-bold text-[12px] uppercase tracking-wide">Add Debit</span>
+          </button>
+          <button 
+            onClick={() => setQuickMode('Credit')}
+            className="flex flex-col items-center justify-center gap-2 bg-white/95 backdrop-blur hover:bg-white border-2 border-emerald-50 text-emerald-600 py-3.5 rounded-2xl transition-all shadow-xl group active:scale-[0.98] ring-1 ring-black/[0.03]"
+          >
+            <ArrowDownCircle size={24} className="group-hover:translate-y-1 transition-transform" />
+            <span className="font-bold text-[12px] uppercase tracking-wide">Add Credit</span>
+          </button>
+        </div>
       </div>
 
       {quickMode !== 'None' && (
@@ -266,7 +287,7 @@ export default function DebtorsPage() {
               <h2 className={`font-bold ${quickMode === 'Debit' ? 'text-red-600' : quickMode === 'Credit' ? 'text-emerald-600' : 'text-indigo-600'}`}>
                 {quickMode === 'Debit' ? 'Add Debit (Charge)' : quickMode === 'Credit' ? 'Add Credit (Payment)' : 'Register Student'}
               </h2>
-              <button onClick={() => { setQuickMode('None'); setQaMsg(""); setQaError(""); }} className="p-2 text-slate-400 hover:bg-slate-200 rounded-full">
+              <button onClick={() => { setQuickMode('None'); setQaMsg(""); setQaError(""); setModalSearch(""); setModalBatch(""); }} className="p-2 text-slate-400 hover:bg-slate-200 rounded-full">
                 <X size={18} />
               </button>
             </div>
@@ -308,13 +329,50 @@ export default function DebtorsPage() {
                 >
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Select Student</label>
+                    <div className="relative">
+                       <Search size={14} className="absolute left-3 top-3 text-slate-400" />
+                       <input 
+                         type="text" 
+                         placeholder="Search Student..." 
+                         value={modalSearch}
+                         onChange={e => setModalSearch(e.target.value)}
+                         className="w-full pl-9 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 outline-none text-sm font-bold text-slate-800"
+                       />
+                    </div>
+                    <div className="flex gap-1.5 overflow-x-auto py-1 scrollbar-hide">
+                      <button 
+                        type="button"
+                        onClick={() => setModalBatch("")}
+                        className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition-colors ${modalBatch === "" ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                      >
+                        ALL
+                      </button>
+                      {BATCHES.map(b => (
+                        <button 
+                          key={b}
+                          type="button"
+                          onClick={() => setModalBatch(b)}
+                          className={`px-3 py-1.5 rounded-lg text-[10px] font-bold whitespace-nowrap transition-colors ${modalBatch === b ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                        >
+                          {b}
+                        </button>
+                      ))}
+                    </div>
                     <select 
                       value={qaStudentId}
                       onChange={e => setQaStudentId(e.target.value)}
-                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 outline-none text-sm font-bold text-slate-800"
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 outline-none text-sm font-bold text-slate-800 mt-2"
                     >
-                      <option value="" disabled>--- Choose Student ---</option>
-                      {debtors.map(d => <option key={d.id} value={d.id}>{d.name} ({d.mobileNumber || "No Phone"})</option>)}
+                      <option value="">--- Choose Student ---</option>
+                      {debtors
+                        .filter(d => {
+                          const matchesBatch = !modalBatch || d.batch === modalBatch;
+                          const matchesSearch = d.name.toLowerCase().includes(modalSearch.toLowerCase()) || d.mobileNumber?.includes(modalSearch);
+                          return matchesBatch && matchesSearch;
+                        })
+                        .sort((a,b) => a.name.localeCompare(b.name))
+                        .map(d => <option key={d.id} value={d.id}>{d.name} ({d.batch || '?'})</option>)
+                      }
                     </select>
                   </div>
                   

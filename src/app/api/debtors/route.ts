@@ -50,11 +50,27 @@ export async function PUT(req: Request) {
       return NextResponse.json({ error: "Debtor not found" }, { status: 404 });
     }
 
-    // If name changed, update linked account name too
+    // If name or batch changed, update linked records
     if (updateData.name && updateData.name !== debtor.name) {
        await Account.findByIdAndUpdate(debtor.accountId, { 
          name: `${updateData.name.trim()} A/c` 
        });
+    }
+
+    if ((updateData.name && updateData.name !== debtor.name) || 
+        (updateData.batch && updateData.batch !== debtor.batch)) {
+        try {
+          const User = (await import("@/models/User")).default;
+          await User.findOneAndUpdate(
+            { debtorId: id },
+            { 
+              name: updateData.name || debtor.name, 
+              batch: updateData.batch || debtor.batch 
+            }
+          );
+        } catch (uErr) {
+          console.error("Failed to sync user record:", uErr);
+        }
     }
 
     const updatedDebtor = await Debtor.findByIdAndUpdate(id, updateData, { new: true });
