@@ -54,12 +54,13 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ 
       user: {
-        id: user._id,
+        id: String(user._id),
         name: user.name,
         phone: user.phone,
         role: user.role,
         batch: user.batch,
-        debtorId: user.debtorId
+        // Ensure debtorId is returned as a plain string (not an ObjectId object)
+        debtorId: user.debtorId ? String(user.debtorId) : undefined
       }
     });
   } catch (error: any) {

@@ -12,10 +12,12 @@
   "dependencies": {
     "@clerk/nextjs": "^7.0.8",
     "@supabase/supabase-js": "^2.101.1",
+    "@types/qrcode.react": "^1.0.5",
     "clsx": "^2.1.1",
     "lucide-react": "^1.7.0",
     "mongoose": "^9.4.1",
     "next": "16.2.2",
+    "qrcode.react": "^4.2.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "tailwind-merge": "^3.5.0",

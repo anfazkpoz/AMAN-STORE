@@ -83,8 +83,12 @@ export default function AuthPage() {
 
         const data = await res.json();
         const newUser: UserType = {
-          ...data.user,
-          id: data.user._id
+          id: String(data.user._id || data.user.id),
+          name: data.user.name,
+          phone: data.user.phone,
+          role: data.user.role,
+          batch: data.user.batch,
+          debtorId: data.user.debtorId ? String(data.user.debtorId) : undefined,
         };
 
         // Update Context state immediately before redirect
@@ -108,7 +112,9 @@ export default function AuthPage() {
         }
 
         const data = await res.json();
-        const user = { ...data.user, id: data.user._id };
+        // The login API already returns { id, name, phone, role, batch, debtorId }
+        // No need to remap _id — it's already normalized
+        const user: UserType = data.user;
         
         // Save persistent 30-day session
         saveSession(user);

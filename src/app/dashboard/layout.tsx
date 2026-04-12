@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { User } from "@/lib/types";
+import { getSession, clearSession } from "@/lib/auth";
 
 export default function DashboardLayout({
   children,
@@ -18,13 +19,12 @@ export default function DashboardLayout({
   const [isAuthorized, setIsAuthorized] = useState(false);
 
   useEffect(() => {
-    const userStr = sessionStorage.getItem("aman_store_current_user");
-    if (!userStr) {
+    const user = getSession();
+    if (!user) {
       router.push("/");
       return;
     }
     
-    const user: User = JSON.parse(userStr);
     setCurrentUser(user);
 
     if (user.role === "Student") {
@@ -66,7 +66,7 @@ export default function DashboardLayout({
   }
 
   const handleLogout = () => {
-    sessionStorage.removeItem("aman_store_current_user");
+    clearSession(); // clears both localStorage and sessionStorage
     router.push("/");
   };
 

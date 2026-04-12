@@ -3,11 +3,26 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Phone, LogOut, CheckCircle2, History, Banknote, Download, X } from "lucide-react";
+import { User, Phone, LogOut, CheckCircle2, History, Banknote, Download, X, Smartphone, QrCode, ExternalLink } from "lucide-react";
 import { useAccounting } from "@/lib/AccountingContext";
 import { User as UserType } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
 import { getSession, clearSession } from "@/lib/auth";
+import { QRCodeSVG } from "qrcode.react";
+
+// ── UPI config ─────────────────────────────────────────────────────────────────
+// Replace the UPI ID below with your actual UPI ID before going live
+const UPI_ID = "muhammedanfaz123-1@oksbi";
+const PAYEE_NAME = "AMAN%20STORE";
+
+function buildUpiUrl(amount: number): string {
+  return `upi://pay?pa=${UPI_ID}&pn=${PAYEE_NAME}&am=${amount.toFixed(2)}&cu=INR`;
+}
+
+// GPay (Google Pay / Tez) deep-link — opens GPay directly, skipping the app picker
+function buildGPayUrl(amount: number): string {
+  return `tez://upi/pay?pa=${UPI_ID}&pn=${PAYEE_NAME}&am=${amount.toFixed(2)}&cu=INR&mc=0000`;
+}
 
 // Type for the browser's beforeinstallprompt event
 interface BeforeInstallPromptEvent extends Event {
@@ -28,7 +43,16 @@ export default function ProfilePage() {
   const [pushSupported, setPushSupported] = useState(false);
   const [pushPermission, setPushPermission] = useState<NotificationPermission>("default");
 
+  // UPI payment state
+  const [showQrSheet, setShowQrSheet] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
   const { debtors, accounts, journalEntries } = useAccounting();
+
+  // Detect mobile on mount
+  useEffect(() => {
+    setIsMobile(/Android|iPhone|iPad|iPod|Opera Mini|IEMobile|WPDesktop/i.test(navigator.userAgent));
+  }, []);
 
   // Capture the install prompt before it fires
   useEffect(() => {
@@ -83,14 +107,33 @@ export default function ProfilePage() {
   async function subscribePush(userId: string) {
     try {
       const reg = await navigator.serviceWorker.ready;
-      // Convert base64 VAPID public key to Uint8Array
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!;
+      // Convert base64 VAPID public key to Uint8Array (required by Chrome)
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+      if (!vapidKey) {
+        console.error("[Push] NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set.");
+        return;
+      }
       const keyBytes = urlBase64ToUint8Array(vapidKey);
 
+      // Unsubscribe any stale subscription first to avoid key-mismatch errors
       const existing = await reg.pushManager.getSubscription();
-      const subscription = existing ?? await reg.pushManager.subscribe({
+      if (existing) {
+        // Re-use if keys match, otherwise re-subscribe
+        try {
+          await fetch("/api/push-subscription", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ userId, subscription: existing.toJSON() }),
+          });
+          return;
+        } catch {
+          await existing.unsubscribe();
+        }
+      }
+
+      const subscription = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: vapidKey,
+        applicationServerKey: keyBytes, // ✅ Must be Uint8Array, NOT the raw string
       });
 
       // Save to DB
@@ -99,6 +142,7 @@ export default function ProfilePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, subscription: subscription.toJSON() }),
       });
+      console.log("[Push] Subscribed successfully for", userId);
     } catch (err) {
       console.error("[Push] Subscribe failed:", err);
     }
@@ -261,6 +305,149 @@ export default function ProfilePage() {
             </p>
           </div>
         </div>
+
+        {/* ── UPI Payment Section ─────────────────────────────────────────── */}
+        {currentBalance > 0 && (
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+            {/* Header */}
+            <div className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-center gap-3">
+              <div className="p-2 bg-emerald-50 rounded-xl">
+                <QrCode size={20} className="text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-slate-800">Pay Your Balance</h3>
+                <p className="text-xs text-slate-500 font-medium">via GPay, PhonePe, Paytm or any UPI app</p>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* Amount pill */}
+              <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded-2xl px-5 py-3.5">
+                <span className="text-sm font-semibold text-red-700">Amount Due</span>
+                <span className="text-2xl font-black text-red-600">₹{currentBalance.toLocaleString()}</span>
+              </div>
+
+              {/* Mobile Pay Now button — opens native UPI app */}
+              {isMobile && (
+                <a
+                  href={buildUpiUrl(currentBalance)}
+                  className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-base tracking-wide shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition-all select-none"
+                >
+                  <Smartphone size={20} />
+                  Pay ₹{currentBalance.toLocaleString()} via UPI
+                  <ExternalLink size={16} className="opacity-70" />
+                </a>
+              )}
+
+              {/* Desktop: always show QR; Mobile: toggle sheet */}
+              {!isMobile ? (
+                /* ── Desktop QR + GPay button ── */
+                <div className="flex flex-col items-center gap-4 pt-2">
+                  <div className="p-4 bg-white rounded-2xl border-2 border-slate-100 shadow-sm inline-block">
+                    <QRCodeSVG
+                      value={buildUpiUrl(currentBalance)}
+                      size={200}
+                      bgColor="#ffffff"
+                      fgColor="#1e293b"
+                      level="H"
+                      includeMargin={false}
+                    />
+                  </div>
+                  <p className="text-sm font-semibold text-slate-600 text-center">
+                    Scan with any UPI app to pay{" "}
+                    <span className="text-emerald-600 font-bold">₹{currentBalance.toLocaleString()}</span>
+                  </p>
+                  <p className="text-[11px] text-slate-400 font-medium">Works with GPay · PhonePe · Paytm · BHIM</p>
+
+                  {/* GPay Pay Now button — desktop */}
+                  <a
+                    href={buildGPayUrl(currentBalance)}
+                    className="flex items-center justify-center gap-2.5 w-full py-3.5 rounded-2xl font-bold text-sm text-white tracking-wide shadow-lg active:scale-[0.98] transition-all select-none"
+                    style={{ background: 'linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%)', boxShadow: '0 4px 15px rgba(26,115,232,0.35)' }}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.6 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z" fill="#FFC107"/>
+                      <path d="M6.3 14.7l6.6 4.8C14.6 15.9 19 13 24 13c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.6 29.5 4 24 4 16.3 4 9.7 8.4 6.3 14.7z" fill="#FF3D00"/>
+                      <path d="M24 44c5.4 0 10.3-2.1 14-5.4l-6.5-5.5C29.5 35 26.9 36 24 36c-5.3 0-9.7-3.3-11.3-8H6.1C9.4 35.7 16.2 44 24 44z" fill="#4CAF50"/>
+                      <path d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.5 5.5C41.8 35.2 44 30 44 24c0-1.3-.1-2.7-.4-3.9z" fill="#1976D2"/>
+                    </svg>
+                    Pay Now with GPay
+                  </a>
+                </div>
+              ) : (
+                /* ── Mobile: QR toggle button ── */
+                <>
+                  <button
+                    onClick={() => setShowQrSheet(true)}
+                    className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-sm transition-all active:scale-[0.98]"
+                  >
+                    <QrCode size={16} />
+                    Show QR Code Instead
+                  </button>
+
+                  {/* QR Bottom Sheet */}
+                  {showQrSheet && (
+                    <div className="fixed inset-0 z-[200] flex items-end justify-center" onClick={() => setShowQrSheet(false)}>
+                      {/* Backdrop */}
+                      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+                      {/* Sheet */}
+                      <div
+                        className="relative w-full max-w-sm bg-white rounded-t-3xl p-6 pb-10 shadow-2xl animate-in slide-in-from-bottom-8 duration-300"
+                        onClick={e => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-between mb-5">
+                          <div>
+                            <h4 className="font-bold text-slate-800 text-base">Scan to Pay</h4>
+                            <p className="text-xs text-slate-500">Open camera or any UPI app</p>
+                          </div>
+                          <button
+                            onClick={() => setShowQrSheet(false)}
+                            className="p-2 rounded-full hover:bg-slate-100 text-slate-400"
+                          >
+                            <X size={18} />
+                          </button>
+                        </div>
+
+                        <div className="flex flex-col items-center gap-4">
+                          <div className="p-4 bg-white rounded-2xl border-2 border-slate-100 shadow-sm">
+                            <QRCodeSVG
+                              value={buildUpiUrl(currentBalance)}
+                              size={220}
+                              bgColor="#ffffff"
+                              fgColor="#1e293b"
+                              level="H"
+                              includeMargin={false}
+                            />
+                          </div>
+                          <p className="text-sm font-semibold text-slate-600 text-center">
+                            Scan with any UPI app to pay{" "}
+                            <span className="text-emerald-600 font-bold">₹{currentBalance.toLocaleString()}</span>
+                          </p>
+                          <p className="text-[11px] text-slate-400 font-medium">GPay · PhonePe · Paytm · BHIM</p>
+
+                          {/* GPay Pay Now button — inside mobile QR sheet */}
+                          <a
+                            href={buildGPayUrl(currentBalance)}
+                            className="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl font-bold text-base text-white tracking-wide shadow-lg active:scale-[0.98] transition-all select-none"
+                            style={{ background: 'linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%)', boxShadow: '0 4px 18px rgba(26,115,232,0.4)' }}
+                          >
+                            <svg width="22" height="22" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                              <path d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.6 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z" fill="#FFC107"/>
+                              <path d="M6.3 14.7l6.6 4.8C14.6 15.9 19 13 24 13c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.6 29.5 4 24 4 16.3 4 9.7 8.4 6.3 14.7z" fill="#FF3D00"/>
+                              <path d="M24 44c5.4 0 10.3-2.1 14-5.4l-6.5-5.5C29.5 35 26.9 36 24 36c-5.3 0-9.7-3.3-11.3-8H6.1C9.4 35.7 16.2 44 24 44z" fill="#4CAF50"/>
+                              <path d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.5 5.5C41.8 35.2 44 30 44 24c0-1.3-.1-2.7-.4-3.9z" fill="#1976D2"/>
+                            </svg>
+                            Pay Now with GPay
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Transaction History Statement */}
         <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">

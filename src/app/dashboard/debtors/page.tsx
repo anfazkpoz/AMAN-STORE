@@ -374,13 +374,22 @@ export default function DebtorsPage() {
                     const student = debtors.find(d => d.id === qaStudentId);
                     if (!student) return;
                     
-                    // Find Cash or Bank account dynamically by name
-                    const cashAcc = accounts.find(a => a.name?.toLowerCase() === 'cash');
-                    const bankAcc = accounts.find(a => a.name?.toLowerCase() === 'bank' || a.name?.toLowerCase().includes('bank'));
+                    // Find Cash or Bank account dynamically by name (flexible keyword search)
+                    const cashKeywords = ['cash'];
+                    const bankKeywords = ['bank', 'hdfc', 'sbi', 'icici', 'axis', 'federal', 'canara', 'kotak'];
+                    const cashAcc = accounts.find(a => {
+                      const n = a.name?.toLowerCase() || '';
+                      return cashKeywords.some(k => n.includes(k));
+                    });
+                    const bankAcc = accounts.find(a => {
+                      const n = a.name?.toLowerCase() || '';
+                      return bankKeywords.some(k => n.includes(k));
+                    });
                     const selectedOppAcc = qaOppositeAccount === 'cash' ? cashAcc : bankAcc;
-                    
+
                     if (!selectedOppAcc) {
-                      setQaError(`${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'} account not found in ledger.`);
+                      const available = accounts.map(a => `"${a.name}"`).join(', ');
+                      setQaError(`No ${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'} account found. Available: ${available || 'none'}`);
                       return;
                     }
 
