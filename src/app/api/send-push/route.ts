@@ -5,15 +5,16 @@ import webpush from "web-push";
 
 export const dynamic = "force-dynamic";
 
-webpush.setVapidDetails(
-  "mailto:admin@amanstore.com",
-  process.env.VAPID_PUBLIC_KEY!,
-  process.env.VAPID_PRIVATE_KEY!
-);
-
 // POST /api/send-push  — body: { userId, balance }
 export async function POST(req: Request) {
   try {
+    // Initialize VAPID inside the handler to avoid module-level errors during build
+    webpush.setVapidDetails(
+      "mailto:admin@amanstore.com",
+      process.env.VAPID_PUBLIC_KEY!,
+      process.env.VAPID_PRIVATE_KEY!
+    );
+
     await dbConnect();
     const { userId, balance } = await req.json();
 
