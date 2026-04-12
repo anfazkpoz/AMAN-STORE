@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Batch, User as UserType } from "@/lib/types";
 import { useAccounting } from "@/lib/AccountingContext";
+import { saveSession, getSession } from "@/lib/auth";
 
 const BATCHES: Batch[] = ['JD1', 'JD2', 'JD3', 'HS1', 'HS2', 'BS1', 'BS2', 'BS3', 'BS4', 'BS5'];
 
@@ -23,6 +24,16 @@ export default function AuthPage() {
   const [showForgot, setShowForgot] = useState(false);
   const router = useRouter();
   const { reloadData } = useAccounting();
+
+  // Auto-login: if a valid persistent session exists, skip the login screen
+  useEffect(() => {
+    const existing = getSession();
+    if (existing) {
+      if (existing.role === 'Admin') router.replace("/dashboard");
+      else if (existing.role === 'Staff') router.replace("/dashboard/debtors");
+      else router.replace("/profile");
+    }
+  }, [router]);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -79,8 +90,8 @@ export default function AuthPage() {
         // Update Context state immediately before redirect
         await reloadData();
         
-        // Auto Sign-In
-        sessionStorage.setItem('aman_store_current_user', JSON.stringify(newUser));
+        // Auto Sign-In with persistent session
+        saveSession(newUser);
         router.push("/profile");
 
       } else {
@@ -99,7 +110,8 @@ export default function AuthPage() {
         const data = await res.json();
         const user = { ...data.user, id: data.user._id };
         
-        sessionStorage.setItem('aman_store_current_user', JSON.stringify(user));
+        // Save persistent 30-day session
+        saveSession(user);
         
         if (user.role === 'Admin') router.push("/dashboard");
         else if (user.role === 'Staff') router.push("/dashboard/debtors");

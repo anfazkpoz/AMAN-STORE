@@ -1,5 +1,5 @@
 "use client";
-import { Users, Search, Filter, Plus, ArrowDownCircle, ArrowUpCircle, X, User as UserIcon, Phone, KeyRound, CheckCircle2, Trash2, Eye, EyeOff, Pencil } from 'lucide-react';
+import { Users, Search, Filter, Plus, ArrowDownCircle, ArrowUpCircle, X, User as UserIcon, Phone, KeyRound, CheckCircle2, Trash2, Eye, EyeOff, Pencil, Bell } from 'lucide-react';
 import { useAccounting } from '@/lib/AccountingContext';
 import { useState, useEffect, useMemo } from 'react';
 import { Batch, User, Debtor } from '@/lib/types';
@@ -23,8 +23,11 @@ export default function DebtorsPage() {
 
   // Quick Actions State
   const [quickMode, setQuickMode] = useState<'None' | 'Debit' | 'Credit' | 'Register'>('None');
+  const [prevQuickMode, setPrevQuickMode] = useState<'Debit' | 'Credit'>('Credit');
   const [qaStudentId, setQaStudentId] = useState("");
   const [qaAmount, setQaAmount] = useState("");
+  const [qaOppositeAccount, setQaOppositeAccount] = useState<'cash' | 'bank'>('cash');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [regName, setRegName] = useState("");
   const [regPhone, setRegPhone] = useState("");
@@ -34,6 +37,10 @@ export default function DebtorsPage() {
 
   const [qaMsg, setQaMsg] = useState("");
   const [qaError, setQaError] = useState("");
+
+  // Push notification state
+  const [pushingId, setPushingId] = useState<string | null>(null);
+  const [pushToast, setPushToast] = useState("");
 
   // Student Search in Modal
   const [modalBatch, setModalBatch] = useState<Batch | "">("");
@@ -92,8 +99,43 @@ export default function DebtorsPage() {
     }
   };
 
+  const handleSendPush = async (e: React.MouseEvent, debtor: { id: string; name: string }, balance: number) => {
+    e.stopPropagation();
+    if (pushingId) return;
+    setPushingId(debtor.id);
+    try {
+      // Resolve the user ID from debtorId
+      const usersRes = await fetch('/api/users?role=Student');
+      const users: User[] = usersRes.ok ? await usersRes.json() : [];
+      const matchedUser = users.find((u: any) => u.debtorId === debtor.id);
+      if (!matchedUser) {
+        setPushToast(`⚠️ No linked user found for ${debtor.name}`);
+        setTimeout(() => setPushToast(''), 3000);
+        return;
+      }
+      const userId = (matchedUser as any)._id || matchedUser.id;
+      const res = await fetch('/api/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, balance }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPushToast(`✓ Push sent to ${debtor.name}`);
+      } else {
+        setPushToast(`✗ ${data.error || 'Send failed'}`);
+      }
+    } catch (err: any) {
+      setPushToast(`✗ ${err.message}`);
+    } finally {
+      setPushingId(null);
+      setTimeout(() => setPushToast(''), 3000);
+    }
+  };
+
   const handleQuickRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return;
     setQaError("");
     
     // Phone is optional — clean if provided
@@ -110,6 +152,7 @@ export default function DebtorsPage() {
       setQaError("Phone must be exactly 10 digits if provided."); return;
     }
 
+    setIsSubmitting(true);
     try {
       // Direct call to users API which handles account and debtor creation for us
       const res = await fetch('/api/users', {
@@ -134,14 +177,24 @@ export default function DebtorsPage() {
       setRegName(''); setRegPhone(''); setRegPassword(''); setRegBatch('');
       setQaError('');
       setQaMsg(`✓ ${regName.trim()} registered successfully!`);
-      setTimeout(() => { setQaMsg(''); setQuickMode('None'); }, 2000);
+      setTimeout(() => { setQaMsg(''); setQuickMode(prevQuickMode); }, 2000);
     } catch (err: any) {
       setQaError(err.message || "An error occurred.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
     <div className="p-0 max-w-4xl mx-auto pb-44 sm:pb-32 relative min-h-screen">
+      {/* Push Toast */}
+      {pushToast && (
+        <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold text-white transition-all animate-in fade-in slide-in-from-top-4 ${
+          pushToast.startsWith('✓') ? 'bg-emerald-600' : 'bg-red-600'
+        }`}>
+          {pushToast}
+        </div>
+      )}
       {/* Sticky Header - Fixes search and filter at the top */}
       <div className="sticky top-0 z-[45] bg-slate-50/95 backdrop-blur-md px-4 sm:px-8 py-6 border-b border-slate-200">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
@@ -225,6 +278,19 @@ export default function DebtorsPage() {
                       <p className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">Balance</p>
                     </div>
                     <div className="flex items-center gap-1 group-hover:opacity-100 transition-opacity">
+                      {/* Send Push Notification — shown when student has a balance */}
+                      {balance > 0 && (
+                        <button
+                          onClick={(e) => handleSendPush(e, debtor, balance)}
+                          disabled={pushingId === debtor.id}
+                          className="p-2 text-slate-300 hover:bg-amber-50 hover:text-amber-500 rounded-full transition-colors disabled:opacity-40"
+                          title="Send Push Notification"
+                        >
+                          {pushingId === debtor.id
+                            ? <span className="text-[10px] font-bold text-amber-500 animate-pulse">...</span>
+                            : <Bell size={16} />}
+                        </button>
+                      )}
                       {currentUser?.role === 'Admin' && (
                         <button 
                           onClick={(e) => {
@@ -300,30 +366,49 @@ export default function DebtorsPage() {
                 <form 
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    if (!qaStudentId || !qaAmount || isNaN(Number(qaAmount))) {
+                    if (isSubmitting) return;
+                    if (!qaStudentId || !qaAmount || isNaN(Number(qaAmount)) || Number(qaAmount) <= 0) {
                        setQaError("Please select a student and enter a valid amount.");
                        return;
                     }
                     const student = debtors.find(d => d.id === qaStudentId);
                     if (!student) return;
                     
-                    const oppositeAccountId = quickMode === "Debit" ? "4" : "1"; 
-                    await addJournalEntry({
-                       date: new Date().toISOString().split("T")[0],
-                       narration: quickMode === "Debit" ? "Quick Charge Added" : "Quick Payment Received",
-                       lf: "",
-                       lines: [
-                         { id: Math.random().toString(), accountId: student.accountId, type: quickMode, amount: Number(qaAmount) },
-                         { id: Math.random().toString(), accountId: oppositeAccountId, type: quickMode === "Debit" ? "Credit" : "Debit", amount: Number(qaAmount) }
-                       ],
-                       createdBy: currentUser?.name || 'System'
-                    });
+                    // Find Cash or Bank account dynamically by name
+                    const cashAcc = accounts.find(a => a.name?.toLowerCase() === 'cash');
+                    const bankAcc = accounts.find(a => a.name?.toLowerCase() === 'bank' || a.name?.toLowerCase().includes('bank'));
+                    const selectedOppAcc = qaOppositeAccount === 'cash' ? cashAcc : bankAcc;
                     
-                    setQaAmount("");
-                    setQaStudentId("");
-                    setQaError("");
-                    setQaMsg(`${quickMode} posted successfully!`);
-                    setTimeout(() => setQaMsg(""), 3000);
+                    if (!selectedOppAcc) {
+                      setQaError(`${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'} account not found in ledger.`);
+                      return;
+                    }
+
+                    setIsSubmitting(true);
+                    try {
+                      await addJournalEntry({
+                         date: new Date().toISOString().split("T")[0],
+                         narration: quickMode === "Debit"
+                           ? `Quick Charge (${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'})`
+                           : `Quick Payment via ${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'}`,
+                         lf: "",
+                         lines: [
+                           { id: Math.random().toString(), accountId: student.accountId, type: quickMode, amount: Number(qaAmount) },
+                           { id: Math.random().toString(), accountId: selectedOppAcc.id, type: quickMode === "Debit" ? "Credit" : "Debit", amount: Number(qaAmount) }
+                         ],
+                         createdBy: currentUser?.name || 'System'
+                      });
+                      
+                      setQaAmount("");
+                      setQaStudentId("");
+                      setQaError("");
+                      setModalSearch("");
+                      setModalBatch("");
+                      setQaMsg(`✓ ${quickMode} posted successfully via ${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'}!`);
+                      setTimeout(() => setQaMsg(""), 3000);
+                    } finally {
+                      setIsSubmitting(false);
+                    }
                   }}
                   className="space-y-4"
                 >
@@ -375,6 +460,37 @@ export default function DebtorsPage() {
                       }
                     </select>
                   </div>
+
+                  {/* Cash / Bank selector */}
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      {quickMode === 'Credit' ? 'Dr. A/C (Received In)' : 'Cr. A/C (Paid From)'}
+                    </label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setQaOppositeAccount('cash')}
+                        className={`py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${
+                          qaOppositeAccount === 'cash'
+                            ? 'bg-emerald-600 text-white border-emerald-600 shadow-md'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300'
+                        }`}
+                      >
+                        💵 Cash
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setQaOppositeAccount('bank')}
+                        className={`py-2.5 rounded-xl text-sm font-bold border-2 transition-all ${
+                          qaOppositeAccount === 'bank'
+                            ? 'bg-blue-600 text-white border-blue-600 shadow-md'
+                            : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300'
+                        }`}
+                      >
+                        🏦 Bank
+                      </button>
+                    </div>
+                  </div>
                   
                   <div className="space-y-1.5 flex-1">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Amount (₹)</label>
@@ -391,16 +507,21 @@ export default function DebtorsPage() {
                   
                   <button 
                     type="submit"
-                    className={`w-full py-3.5 rounded-xl text-white font-bold tracking-wide mt-2 ${quickMode === 'Debit' ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'}`}
+                    disabled={isSubmitting}
+                    className={`w-full py-3.5 rounded-xl text-white font-bold tracking-wide mt-2 transition-all ${
+                      isSubmitting
+                        ? 'opacity-60 cursor-not-allowed bg-slate-400'
+                        : quickMode === 'Debit' ? 'bg-red-600 hover:bg-red-700 active:scale-[0.98]' : 'bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98]'
+                    }`}
                   >
-                     Confirm {quickMode}
+                    {isSubmitting ? 'Saving...' : `Confirm ${quickMode}`}
                   </button>
                   
                   <div className="pt-4 mt-6 border-t border-slate-100 text-center">
                     <p className="text-xs text-slate-500 mb-2">Student not found?</p>
                     <button 
                       type="button"
-                      onClick={() => { setQaError(""); setQaMsg(""); setQuickMode('Register'); }}
+                      onClick={() => { setQaError(""); setQaMsg(""); setPrevQuickMode(quickMode as 'Debit' | 'Credit'); setQuickMode('Register'); }}
                       className="text-sm font-bold text-indigo-600 hover:text-indigo-800 underline decoration-indigo-200 underline-offset-4"
                     >
                       Register Here
@@ -468,18 +589,21 @@ export default function DebtorsPage() {
 
                   <button 
                     type="submit"
-                    className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-md font-bold text-sm tracking-wide mt-4"
+                    disabled={isSubmitting}
+                    className={`w-full py-3.5 text-white rounded-xl shadow-md font-bold text-sm tracking-wide mt-4 transition-all ${
+                      isSubmitting ? 'bg-slate-400 cursor-not-allowed opacity-60' : 'bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98]'
+                    }`}
                   >
-                    Register Student
+                    {isSubmitting ? 'Registering...' : 'Register Student'}
                   </button>
                   
                   <div className="pt-2 text-center">
                     <button 
                       type="button"
-                      onClick={() => setQuickMode('Debit')}
+                      onClick={() => { setQaError(""); setQaMsg(""); setQuickMode(prevQuickMode); }}
                       className="text-xs font-semibold text-slate-500 hover:text-slate-800"
                     >
-                      Cancel
+                      ← Back
                     </button>
                   </div>
                 </form>
