@@ -10,11 +10,12 @@ type ReportTab = 'trial_balance' | 'pnl' | 'balance_sheet' | 'students_balance';
 export default function ReportsPage() {
   const { accounts, debtors } = useAccounting();
   const [activeTab, setActiveTab] = useState<ReportTab>('trial_balance');
+  const [batchFilter, setBatchFilter] = useState<string>('All Batches');
 
-  // Compute Trial Balance Array with Sundry Debtors grouping
+  // Compute Trial Balance Array with Sundry Debtors & Creditors grouping
   const regularAccounts: any[] = [];
-  let sundryDebtorsDr = 0;
-  let sundryDebtorsCr = 0;
+  let sundryDebtorsTotal = 0;
+  let sundryCreditorsTotal = 0;
 
   accounts.forEach(a => {
     let dr = 0;
@@ -29,8 +30,11 @@ export default function ReportsPage() {
     
     if (debtors.some(d => d.accountId === a.id)) {
       // It's a student/customer debtor account
-      sundryDebtorsDr += dr;
-      sundryDebtorsCr += cr;
+      if (a.balance > 0) {
+        sundryDebtorsTotal += a.balance;
+      } else if (a.balance < 0) {
+        sundryCreditorsTotal += Math.abs(a.balance);
+      }
     } else {
       if (dr > 0 || cr > 0) {
         regularAccounts.push({ ...a, dr, cr });
@@ -39,15 +43,28 @@ export default function ReportsPage() {
   });
 
   const trialBalance = [...regularAccounts];
-  if (sundryDebtorsDr > 0 || sundryDebtorsCr > 0) {
+  
+  if (sundryDebtorsTotal > 0) {
     trialBalance.push({ 
       id: 'sundry_debtors', 
-      name: 'Sundry Debtors', 
+      name: 'Sundry Debtors (Student Dues)', 
       type: 'Asset', 
       balanceType: 'Debit', 
-      balance: sundryDebtorsDr - sundryDebtorsCr,
-      dr: sundryDebtorsDr, 
-      cr: sundryDebtorsCr 
+      balance: sundryDebtorsTotal,
+      dr: sundryDebtorsTotal, 
+      cr: 0 
+    } as any);
+  }
+
+  if (sundryCreditorsTotal > 0) {
+    trialBalance.push({ 
+      id: 'sundry_creditors', 
+      name: 'Sundry Creditors (Student Advances)', 
+      type: 'Liability', 
+      balanceType: 'Credit', 
+      balance: sundryCreditorsTotal, // We can store magnitude here
+      dr: 0, 
+      cr: sundryCreditorsTotal 
     } as any);
   }
 
@@ -523,23 +540,37 @@ export default function ReportsPage() {
 
         {activeTab === 'students_balance' && (
           <div className="animate-in fade-in duration-300">
-            <div className="p-6 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center print:hidden">
+            <div className="p-6 bg-slate-50/50 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 print:hidden">
               <div>
                 <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wide">Student Balances Report</h2>
                 <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">Exportable PDF Report</p>
               </div>
-              <button 
-                onClick={() => window.print()}
-                className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-sm font-bold rounded-xl transition-colors shadow-sm"
-              >
-                <Printer size={16} /> Save / Print PDF
-              </button>
+              <div className="flex items-center gap-3">
+                <select 
+                  value={batchFilter}
+                  onChange={(e) => setBatchFilter(e.target.value)}
+                  className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
+                >
+                  <option value="All Batches">All Batches</option>
+                  {Array.from(new Set(debtors.map(d => d.batch).filter(Boolean))).sort().map(b => (
+                    <option key={String(b)} value={String(b)}>{String(b)}</option>
+                  ))}
+                </select>
+                <button 
+                  onClick={() => window.print()}
+                  className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-sm font-bold rounded-xl transition-colors shadow-sm"
+                >
+                  <Printer size={16} /> Save / Print PDF
+                </button>
+              </div>
             </div>
 
             {/* Print Header (Only visible on print) — Compact */}
             <div className="hidden print:block text-center p-4 border-b-2 border-slate-800 mb-4">
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">AMAN STORE</h1>
-              <h2 className="text-lg font-bold text-slate-700 mt-1 uppercase tracking-wide">Statement of Student Balances</h2>
+              <h2 className="text-lg font-bold text-slate-700 mt-1 uppercase tracking-wide">
+                Statement of Student Balances{batchFilter !== 'All Batches' ? ` - ${batchFilter}` : ''}
+              </h2>
               <p className="text-xs font-medium text-slate-500 mt-0.5">Generated: {getTodayFormatted()}</p>
             </div>
 
@@ -549,49 +580,56 @@ export default function ReportsPage() {
                   <tr>
                     <th className="px-6 py-4 font-bold border-b border-slate-200">Name</th>
                     <th className="px-6 py-4 font-bold border-b border-slate-200">Batch</th>
-                    <th className="px-6 py-4 font-bold border-b border-slate-200">Phone</th>
                     <th className="px-6 py-4 font-bold text-right border-b border-slate-200">Balance (₹)</th>
-                    <th className="px-6 py-4 font-bold text-right border-b border-slate-200 print:hidden">Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 print:divide-y-2 print:divide-slate-200">
-                  {debtors.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} className="px-6 py-12 text-center text-slate-500 italic">No registered students found.</td>
-                    </tr>
-                  ) : (
-                    debtors.map(student => {
+                  {(() => {
+                    const filteredDebtors = debtors.filter(student => {
                       const acc = accounts.find(a => a.id === student.accountId);
                       const bal = acc?.balance || 0;
+                      if (bal <= 0) return false;
+                      if (batchFilter !== 'All Batches' && student.batch !== batchFilter) return false;
+                      return true;
+                    });
+                    
+                    if (filteredDebtors.length === 0) {
                       return (
-                        <tr key={student.id} className="hover:bg-slate-50 transition-colors print:hover:bg-white break-inside-avoid">
-                          <td className="px-6 py-3 font-bold text-slate-800 print:text-black print:text-sm">{student.name}</td>
-                          <td className="px-6 py-3 font-semibold text-slate-600">{student.batch || 'N/A'}</td>
-                          <td className="px-6 py-3 font-mono text-slate-500 text-xs">{student.mobileNumber}</td>
-                          <td className={`px-6 py-3 text-right font-mono font-bold print:text-black ${bal > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
-                            {Math.abs(bal).toFixed(2)} {bal > 0 ? 'Dr' : bal < 0 ? 'Cr' : ''}
-                          </td>
-                          <td className="px-6 py-3 text-right print:hidden">
-                            <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${bal > 0 ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                              {bal > 0 ? 'Due' : 'Clear'}
-                            </span>
-                          </td>
+                        <tr>
+                          <td colSpan={3} className="px-6 py-12 text-center text-slate-500 italic">No students found with pending balance.</td>
                         </tr>
                       );
-                    })
-                  )}
-                  {/* Total Line */}
-                  <tr className="bg-slate-50 font-black border-t-4 border-slate-200 print:border-slate-800">
-                    <td colSpan={3} className="px-6 py-4 text-right uppercase tracking-wider text-slate-700 text-xs">Total Outstanding Receivables</td>
-                    <td className="px-6 py-4 text-right font-mono text-red-600 print:text-black relative">
-                      ₹{debtors.reduce((sum, student) => {
-                        const acc = accounts.find(a => a.id === student.accountId);
-                        const bal = acc?.balance || 0;
-                        return sum + (bal > 0 ? bal : 0);
-                      }, 0).toFixed(2)}
-                    </td>
-                    <td className="print:hidden"></td>
-                  </tr>
+                    }
+                    
+                    const totalDues = filteredDebtors.reduce((sum, student) => {
+                       const acc = accounts.find(a => a.id === student.accountId);
+                       return sum + (acc?.balance || 0);
+                    }, 0);
+
+                    return (
+                      <>
+                        {filteredDebtors.map(student => {
+                          const acc = accounts.find(a => a.id === student.accountId);
+                          const bal = acc?.balance || 0;
+                          return (
+                            <tr key={student.id} className="hover:bg-slate-50 transition-colors print:hover:bg-white break-inside-avoid">
+                              <td className="px-6 py-3 font-bold text-slate-800 print:text-black print:text-sm">{student.name}</td>
+                              <td className="px-6 py-3 font-semibold text-slate-600">{student.batch || 'N/A'}</td>
+                              <td className="px-6 py-3 text-right font-mono font-bold print:text-black text-red-600">
+                                {bal.toFixed(2)} Dr
+                              </td>
+                            </tr>
+                          );
+                        })}
+                        <tr className="bg-slate-50 font-black border-t-4 border-slate-200 print:border-slate-800">
+                          <td colSpan={2} className="px-6 py-4 text-right uppercase tracking-wider text-slate-700 text-xs">Total Outstanding Receivables</td>
+                          <td className="px-6 py-4 text-right font-mono text-red-600 print:text-black relative">
+                            ₹{totalDues.toFixed(2)}
+                          </td>
+                        </tr>
+                      </>
+                    );
+                  })()}
                 </tbody>
               </table>
               <div className="hidden print:block text-center mt-12 text-slate-500 text-xs tracking-widest border-t border-dashed border-slate-300 pt-4">

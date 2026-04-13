@@ -1,5 +1,6 @@
 import dbConnect from "@/lib/mongodb";
 import Account from "@/models/Account";
+import JournalEntry from "@/models/JournalEntry";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -41,8 +42,14 @@ export async function DELETE(req: Request) {
   try {
     await dbConnect();
     const { id } = await req.json();
+    
+    // Delete all journal entries referencing this account to prevent orphaned data
+    await JournalEntry.deleteMany({ "lines.accountId": id });
+    
+    // Delete the actual account only after entries are removed
     await Account.findByIdAndDelete(id);
-    return NextResponse.json({ message: "Account deleted" });
+    
+    return NextResponse.json({ message: "Account and related journal entries deleted" });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

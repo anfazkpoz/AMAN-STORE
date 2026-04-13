@@ -49,9 +49,13 @@ export default function DashboardPage() {
   const totalSales = accounts.find(a => a.id === '4')?.balance || 0;
   const cashInHand = accounts.find(a => a.id === '1')?.balance || 0;
   const bankBalance = accounts.find(a => a.id === '2')?.balance || 0;
-  const totalDebtorsAmount = accounts
+  const totalAssets = accounts
     .filter(a => a.type === 'Asset' && !['1', '2'].includes(a.id) && a.balance > 0)
     .reduce((sum, a) => sum + a.balance, 0);
+
+  const totalLiabilities = accounts
+    .filter(a => a.type === 'Asset' && !['1', '2'].includes(a.id) && a.balance < 0)
+    .reduce((sum, a) => sum + Math.abs(a.balance), 0);
 
   const stats = [
     {
@@ -63,12 +67,20 @@ export default function DashboardPage() {
       accent: "bg-emerald-500",
     },
     {
-      label: "Outstanding Dues",
-      value: `₹${totalDebtorsAmount.toLocaleString()}`,
+      label: "Total Assets (Debtors)",
+      value: `₹${totalAssets.toLocaleString()}`,
       icon: Receipt,
       color: "text-rose-500",
       bg: "bg-rose-50",
       accent: "bg-rose-500",
+    },
+    {
+      label: "Total Liabilities (Advances)",
+      value: `₹${totalLiabilities.toLocaleString()}`,
+      icon: Receipt,
+      color: "text-emerald-600",
+      bg: "bg-emerald-50",
+      accent: "bg-emerald-500",
     },
     {
       label: "Cash in Hand",
@@ -133,7 +145,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Stats Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
         {stats.map(stat => (
           <div
             key={stat.label}

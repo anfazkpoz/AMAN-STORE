@@ -46,6 +46,8 @@ export default function ProfilePage() {
   // UPI payment state
   const [showQrSheet, setShowQrSheet] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
+  const [pendingPaymentUrl, setPendingPaymentUrl] = useState("");
 
   const { debtors, accounts, journalEntries } = useAccounting();
 
@@ -290,12 +292,18 @@ export default function ProfilePage() {
 
           <div className="relative z-10">
             <p className="text-indigo-100 font-medium tracking-wide uppercase text-xs mb-1">Current Balance</p>
-            <h3 className="text-5xl font-bold tracking-tight mb-2 flex items-baseline gap-2">
-              ₹{Math.abs(currentBalance).toLocaleString()}
-              <span className="text-lg font-medium text-indigo-200 uppercase">
-                {currentBalance > 0 ? "Due (Dr)" : currentBalance < 0 ? "Advance (Cr)" : "Settled"}
-              </span>
-            </h3>
+            {currentBalance === 0 ? (
+              <h3 className="text-4xl sm:text-5xl font-bold tracking-tight mb-2 text-indigo-200">
+                Settled
+              </h3>
+            ) : (
+              <h3 className="text-4xl sm:text-5xl font-bold tracking-tight mb-2 flex items-center flex-wrap gap-3">
+                <span>₹{Math.abs(currentBalance).toLocaleString()}</span>
+                <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest ${currentBalance > 0 ? 'bg-red-500/20 text-red-100 border border-red-500/30' : 'bg-emerald-500/20 text-emerald-100 border border-emerald-500/30'}`}>
+                  {currentBalance > 0 ? "Debtor (Asset)" : "Creditor (Liability)"}
+                </span>
+              </h3>
+            )}
             <p className="text-sm text-indigo-100/80 font-medium">
               {currentBalance > 0
                 ? "This is the amount you currently owe."
@@ -329,14 +337,17 @@ export default function ProfilePage() {
 
               {/* Mobile Pay Now button — opens native UPI app */}
               {isMobile && (
-                <a
-                  href={buildUpiUrl(currentBalance)}
+                <button
+                  onClick={() => {
+                    setPendingPaymentUrl(buildUpiUrl(currentBalance));
+                    setShowWarning(true);
+                  }}
                   className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-base tracking-wide shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition-all select-none"
                 >
                   <Smartphone size={20} />
                   Pay ₹{currentBalance.toLocaleString()} via UPI
                   <ExternalLink size={16} className="opacity-70" />
-                </a>
+                </button>
               )}
 
               {/* Desktop: always show QR; Mobile: toggle sheet */}
@@ -360,8 +371,11 @@ export default function ProfilePage() {
                   <p className="text-[11px] text-slate-400 font-medium">Works with GPay · PhonePe · Paytm · BHIM</p>
 
                   {/* GPay Pay Now button — desktop */}
-                  <a
-                    href={buildGPayUrl(currentBalance)}
+                  <button
+                    onClick={() => {
+                      setPendingPaymentUrl(buildGPayUrl(currentBalance));
+                      setShowWarning(true);
+                    }}
                     className="flex items-center justify-center gap-2.5 w-full py-3.5 rounded-2xl font-bold text-sm text-white tracking-wide shadow-lg active:scale-[0.98] transition-all select-none"
                     style={{ background: 'linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%)', boxShadow: '0 4px 15px rgba(26,115,232,0.35)' }}
                   >
@@ -372,7 +386,7 @@ export default function ProfilePage() {
                       <path d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.5 5.5C41.8 35.2 44 30 44 24c0-1.3-.1-2.7-.4-3.9z" fill="#1976D2"/>
                     </svg>
                     Pay Now with GPay
-                  </a>
+                  </button>
                 </div>
               ) : (
                 /* ── Mobile: QR toggle button ── */
@@ -426,8 +440,11 @@ export default function ProfilePage() {
                           <p className="text-[11px] text-slate-400 font-medium">GPay · PhonePe · Paytm · BHIM</p>
 
                           {/* GPay Pay Now button — inside mobile QR sheet */}
-                          <a
-                            href={buildGPayUrl(currentBalance)}
+                          <button
+                            onClick={() => {
+                              setPendingPaymentUrl(buildGPayUrl(currentBalance));
+                              setShowWarning(true);
+                            }}
                             className="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl font-bold text-base text-white tracking-wide shadow-lg active:scale-[0.98] transition-all select-none"
                             style={{ background: 'linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%)', boxShadow: '0 4px 18px rgba(26,115,232,0.4)' }}
                           >
@@ -438,7 +455,7 @@ export default function ProfilePage() {
                               <path d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.5 5.5C41.8 35.2 44 30 44 24c0-1.3-.1-2.7-.4-3.9z" fill="#1976D2"/>
                             </svg>
                             Pay Now with GPay
-                          </a>
+                          </button>
                         </div>
                       </div>
                     </div>
@@ -492,6 +509,42 @@ export default function ProfilePage() {
         </div>
 
       </div>
+
+      {showWarning && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-6">
+              <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center text-amber-600 mb-4 mx-auto">
+                <span className="text-2xl">⚠️</span>
+              </div>
+              <h3 className="text-xl font-bold text-center text-slate-800 mb-3">Important Instruction</h3>
+              <p className="text-slate-600 text-center font-medium leading-relaxed mb-8">
+                After completing your payment, please take a <strong className="text-slate-800">screenshot of the success screen</strong> and send it to the Admin via WhatsApp.
+              </p>
+              
+              <div className="flex flex-col gap-3">
+                <button
+                  onClick={() => {
+                    setShowWarning(false);
+                    if (pendingPaymentUrl) {
+                      window.location.href = pendingPaymentUrl;
+                    }
+                  }}
+                  className="w-full py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold tracking-wide transition-all shadow-md active:scale-95"
+                >
+                  Okay, Proceed to Pay
+                </button>
+                <button
+                  onClick={() => setShowWarning(false)}
+                  className="w-full py-3.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-2xl font-bold tracking-wide transition-all active:scale-95"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -99,37 +99,57 @@ export default function DebtorsPage() {
     }
   };
 
-  const handleSendPush = async (e: React.MouseEvent, debtor: { id: string; name: string }, balance: number) => {
+  const handleSendPush = async (e: React.MouseEvent, debtor: Debtor, balance: number) => {
     e.stopPropagation();
     if (pushingId) return;
     setPushingId(debtor.id);
+
+    const triggerWhatsApp = () => {
+      setPushToast(`ℹ️ No Subscription. Opening WhatsApp...`);
+      const msg = encodeURIComponent(`Hi ${debtor.name},\n\nReminder from AMAN STORE:\nYou have a pending balance of ₹${Math.abs(balance).toLocaleString()}.\n\nPlease clear your dues at your earliest convenience.\n\nThank you!`);
+      const number = debtor.mobileNumber?.replace(/[^0-9]/g, '') || '';
+      const waNumber = number.length === 10 ? `91${number}` : number;
+      
+      if (waNumber) {
+        window.open(`https://wa.me/${waNumber}?text=${msg}`, '_blank');
+      } else {
+        setPushToast(`✗ No phone number available`);
+      }
+    };
+
     try {
       // Resolve the user ID from debtorId
       const usersRes = await fetch('/api/users?role=Student');
       const users: User[] = usersRes.ok ? await usersRes.json() : [];
       const matchedUser = users.find((u: any) => u.debtorId === debtor.id);
+      
       if (!matchedUser) {
-        setPushToast(`⚠️ No linked user found for ${debtor.name}`);
-        setTimeout(() => setPushToast(''), 3000);
+        triggerWhatsApp();
         return;
       }
+      
       const userId = (matchedUser as any)._id || matchedUser.id;
       const res = await fetch('/api/send-push', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId, balance }),
       });
+      
       const data = await res.json();
       if (res.ok) {
         setPushToast(`✓ Push sent to ${debtor.name}`);
       } else {
-        setPushToast(`✗ ${data.error || 'Send failed'}`);
+        if (data.error === "No subscription found for this student") {
+          triggerWhatsApp();
+        } else {
+          setPushToast(`✗ ${data.error || 'Send failed'}`);
+        }
       }
     } catch (err: any) {
-      setPushToast(`✗ ${err.message}`);
+      triggerWhatsApp();
     } finally {
       setPushingId(null);
-      setTimeout(() => setPushToast(''), 3000);
+      setTimeout(() => setPushToast(''), 3500);
     }
   };
 
@@ -272,9 +292,21 @@ export default function DebtorsPage() {
                   </div>
                   <div className="text-right flex items-center gap-4">
                     <div>
-                      <p className={`font-bold ${balance > 0 ? 'text-red-500' : balance < 0 ? 'text-emerald-500' : 'text-slate-400'}`}>
-                        ₹{Math.abs(balance).toLocaleString()} {balance > 0 ? 'Dr' : balance < 0 ? 'Cr' : ''}
-                      </p>
+                      {balance > 0 ? (
+                        <p className="font-bold flex items-center justify-end gap-1.5 text-red-500">
+                          ₹{balance.toLocaleString()}
+                          <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-extrabold">(Dr) Debtor (Asset)</span>
+                        </p>
+                      ) : balance < 0 ? (
+                        <p className="font-bold flex items-center justify-end gap-1.5 text-emerald-500">
+                          ₹{Math.abs(balance).toLocaleString()}
+                          <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-extrabold">(Cr) Creditor (Liability)</span>
+                        </p>
+                      ) : (
+                        <p className="font-bold flex items-center justify-end gap-1.5 text-slate-400">
+                          <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-extrabold">Settled</span>
+                        </p>
+                      )}
                       <p className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">Balance</p>
                     </div>
                     <div className="flex items-center gap-1 group-hover:opacity-100 transition-opacity">
@@ -374,32 +406,56 @@ export default function DebtorsPage() {
                     const student = debtors.find(d => d.id === qaStudentId);
                     if (!student) return;
                     
-                    // Find Cash or Bank account dynamically by name (flexible keyword search)
-                    const cashKeywords = ['cash'];
-                    const bankKeywords = ['bank', 'hdfc', 'sbi', 'icici', 'axis', 'federal', 'canara', 'kotak'];
-                    const cashAcc = accounts.find(a => {
-                      const n = a.name?.toLowerCase() || '';
-                      return cashKeywords.some(k => n.includes(k));
-                    });
-                    const bankAcc = accounts.find(a => {
-                      const n = a.name?.toLowerCase() || '';
-                      return bankKeywords.some(k => n.includes(k));
-                    });
-                    const selectedOppAcc = qaOppositeAccount === 'cash' ? cashAcc : bankAcc;
+                    let selectedOppAcc: any = null;
 
-                    if (!selectedOppAcc) {
-                      const available = accounts.map(a => `"${a.name}"`).join(', ');
-                      setQaError(`No ${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'} account found. Available: ${available || 'none'}`);
-                      return;
+                    if (quickMode === 'Credit') {
+                      // Find Cash or Bank account dynamically by name (flexible keyword search)
+                      const cashKeywords = ['cash'];
+                      const bankKeywords = ['bank', 'hdfc', 'sbi', 'icici', 'axis', 'federal', 'canara', 'kotak'];
+                      const cashAcc = accounts.find(a => {
+                        const n = a.name?.toLowerCase() || '';
+                        return cashKeywords.some(k => n.includes(k));
+                      });
+                      const bankAcc = accounts.find(a => {
+                        const n = a.name?.toLowerCase() || '';
+                        return bankKeywords.some(k => n.includes(k));
+                      });
+                      selectedOppAcc = qaOppositeAccount === 'cash' ? cashAcc : bankAcc;
+
+                      if (!selectedOppAcc) {
+                        const available = accounts.map(a => `"${a.name}"`).join(', ');
+                        setQaError(`No ${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'} account found. Available: ${available || 'none'}`);
+                        return;
+                      }
+                    } else {
+                      // Logic for Debit
+                      const incomeKeywords = ['sales', 'fees', 'income', 'revenue'];
+                      selectedOppAcc = accounts.find(a => {
+                        const n = a.name?.toLowerCase() || '';
+                        return incomeKeywords.some(k => n.includes(k));
+                      });
+
+                      if (!selectedOppAcc) {
+                        setQaError(`No Sales or Fees account found. Please create one in accounts to record charges.`);
+                        return;
+                      }
                     }
 
                     setIsSubmitting(true);
                     try {
+                      let narration = "";
+                      let msg = "";
+                      if (quickMode === "Debit") {
+                        narration = `Student Charge (Fees/Sales)`;
+                        msg = `✓ Debit posted successfully!`;
+                      } else {
+                        narration = `Quick Payment via ${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'}`;
+                        msg = `✓ Credit posted successfully via ${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'}!`;
+                      }
+
                       await addJournalEntry({
                          date: new Date().toISOString().split("T")[0],
-                         narration: quickMode === "Debit"
-                           ? `Quick Charge (${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'})`
-                           : `Quick Payment via ${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'}`,
+                         narration,
                          lf: "",
                          lines: [
                            { id: Math.random().toString(), accountId: student.accountId, type: quickMode, amount: Number(qaAmount) },
@@ -413,7 +469,7 @@ export default function DebtorsPage() {
                       setQaError("");
                       setModalSearch("");
                       setModalBatch("");
-                      setQaMsg(`✓ ${quickMode} posted successfully via ${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'}!`);
+                      setQaMsg(msg);
                       setTimeout(() => setQaMsg(""), 3000);
                     } finally {
                       setIsSubmitting(false);
@@ -470,10 +526,11 @@ export default function DebtorsPage() {
                     </select>
                   </div>
 
-                  {/* Cash / Bank selector */}
+                  {/* Cash / Bank selector - Only for Credit */}
+                  {quickMode === 'Credit' && (
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      {quickMode === 'Credit' ? 'Dr. A/C (Received In)' : 'Cr. A/C (Paid From)'}
+                      Dr. A/C (Received In)
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                       <button
@@ -500,6 +557,7 @@ export default function DebtorsPage() {
                       </button>
                     </div>
                   </div>
+                  )}
                   
                   <div className="space-y-1.5 flex-1">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Amount (₹)</label>
@@ -526,6 +584,7 @@ export default function DebtorsPage() {
                     {isSubmitting ? 'Saving...' : `Confirm ${quickMode}`}
                   </button>
                   
+                  {quickMode === 'Credit' && (
                   <div className="pt-4 mt-6 border-t border-slate-100 text-center">
                     <p className="text-xs text-slate-500 mb-2">Student not found?</p>
                     <button 
@@ -536,6 +595,7 @@ export default function DebtorsPage() {
                       Register Here
                     </button>
                   </div>
+                  )}
                 </form>
               )}
 

@@ -1,6 +1,7 @@
 import dbConnect from "@/lib/mongodb";
 import Debtor from "@/models/Debtor";
 import Account from "@/models/Account";
+import JournalEntry from "@/models/JournalEntry";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -88,10 +89,15 @@ export async function DELETE(req: Request) {
     if (debtor) {
       // Also delete the linked account? 
       // Based on original logic: yes.
+      
+      // Cascade delete: Remove all Journal Entries associated with this debtor's account first
+      await JournalEntry.deleteMany({ "lines.accountId": debtor.accountId });
+      
+      // Then delete the account and debtor
       await Account.findByIdAndDelete(debtor.accountId);
       await Debtor.findByIdAndDelete(id);
     }
-    return NextResponse.json({ message: "Debtor deleted" });
+    return NextResponse.json({ message: "Debtor, linked account, and related journal entries deleted cascade" });
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
