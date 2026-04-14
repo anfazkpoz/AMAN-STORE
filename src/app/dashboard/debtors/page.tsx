@@ -1,5 +1,5 @@
 "use client";
-import { Users, Search, Filter, Plus, ArrowDownCircle, ArrowUpCircle, X, User as UserIcon, Phone, KeyRound, CheckCircle2, Trash2, Eye, EyeOff, Pencil, Bell } from 'lucide-react';
+import { Users, Search, Filter, Plus, ArrowDownCircle, ArrowUpCircle, X, User as UserIcon, Phone, KeyRound, CheckCircle2, Trash2, Eye, EyeOff, Pencil, MessageCircle } from 'lucide-react';
 import { useAccounting } from '@/lib/AccountingContext';
 import { useState, useEffect, useMemo } from 'react';
 import { Batch, User, Debtor } from '@/lib/types';
@@ -38,10 +38,7 @@ export default function DebtorsPage() {
   const [qaMsg, setQaMsg] = useState("");
   const [qaError, setQaError] = useState("");
 
-  // Push notification state
-  const [pushingId, setPushingId] = useState<string | null>(null);
-  const [pushToast, setPushToast] = useState("");
-
+  // Notice: Push notification state removed for WhatsApp replace
   // Student Search in Modal
   const [modalBatch, setModalBatch] = useState<Batch | "">("");
   const [modalSearch, setModalSearch] = useState("");
@@ -99,57 +96,16 @@ export default function DebtorsPage() {
     }
   };
 
-  const handleSendPush = async (e: React.MouseEvent, debtor: Debtor, balance: number) => {
+  const handleWhatsAppReminder = (e: React.MouseEvent, debtor: Debtor, balance: number) => {
     e.stopPropagation();
-    if (pushingId) return;
-    setPushingId(debtor.id);
-
-    const triggerWhatsApp = () => {
-      setPushToast(`ℹ️ No Subscription. Opening WhatsApp...`);
-      const msg = encodeURIComponent(`Hi ${debtor.name},\n\nReminder from AMAN STORE:\nYou have a pending balance of ₹${Math.abs(balance).toLocaleString()}.\n\nPlease clear your dues at your earliest convenience.\n\nThank you!`);
-      const number = debtor.mobileNumber?.replace(/[^0-9]/g, '') || '';
-      const waNumber = number.length === 10 ? `91${number}` : number;
-      
-      if (waNumber) {
-        window.open(`https://wa.me/${waNumber}?text=${msg}`, '_blank');
-      } else {
-        setPushToast(`✗ No phone number available`);
-      }
-    };
-
-    try {
-      // Resolve the user ID from debtorId
-      const usersRes = await fetch('/api/users?role=Student');
-      const users: User[] = usersRes.ok ? await usersRes.json() : [];
-      const matchedUser = users.find((u: any) => u.debtorId === debtor.id);
-      
-      if (!matchedUser) {
-        triggerWhatsApp();
-        return;
-      }
-      
-      const userId = (matchedUser as any)._id || matchedUser.id;
-      const res = await fetch('/api/send-push', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, balance }),
-      });
-      
-      const data = await res.json();
-      if (res.ok) {
-        setPushToast(`✓ Push sent to ${debtor.name}`);
-      } else {
-        if (data.error === "No subscription found for this student") {
-          triggerWhatsApp();
-        } else {
-          setPushToast(`✗ ${data.error || 'Send failed'}`);
-        }
-      }
-    } catch (err: any) {
-      triggerWhatsApp();
-    } finally {
-      setPushingId(null);
-      setTimeout(() => setPushToast(''), 3500);
+    const msg = encodeURIComponent(`Hi ${debtor.name}, this is a gentle reminder from AMAN STORE. Your current pending balance is ₹${Math.abs(balance).toLocaleString()}. Please clear it at the earliest.`);
+    const number = debtor.mobileNumber?.replace(/[^0-9]/g, '') || '';
+    const waNumber = number.length === 10 ? `91${number}` : number;
+    
+    if (waNumber) {
+      window.open(`https://wa.me/${waNumber}?text=${msg}`, '_blank');
+    } else {
+      alert("No valid phone number available for this student.");
     }
   };
 
@@ -207,14 +163,7 @@ export default function DebtorsPage() {
 
   return (
     <div className="p-0 max-w-4xl mx-auto pb-44 sm:pb-32 relative min-h-screen">
-      {/* Push Toast */}
-      {pushToast && (
-        <div className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] px-5 py-3 rounded-2xl shadow-2xl text-sm font-bold text-white transition-all animate-in fade-in slide-in-from-top-4 ${
-          pushToast.startsWith('✓') ? 'bg-emerald-600' : 'bg-red-600'
-        }`}>
-          {pushToast}
-        </div>
-      )}
+
       {/* Sticky Header - Fixes search and filter at the top */}
       <div className="sticky top-0 z-[45] bg-slate-50/95 backdrop-blur-md px-4 sm:px-8 py-6 border-b border-slate-200">
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 gap-4">
@@ -274,53 +223,48 @@ export default function DebtorsPage() {
                   onClick={() => router.push(`/dashboard/debtors/${debtor.id}`)}
                   className="p-4 sm:px-6 hover:bg-slate-50 cursor-pointer transition-colors flex items-center justify-between group"
                 >
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                     <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold shrink-0">
                       {debtor.name.charAt(0).toUpperCase()}
                     </div>
-                    <div>
-                      <p className="font-bold text-slate-800 flex items-center gap-2 group-hover:text-indigo-600 transition-colors">
-                        {debtor.name}
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-800 flex items-center gap-2 group-hover:text-indigo-600 transition-colors truncate">
+                        <span className="truncate">{debtor.name}</span>
                         {debtor.batch && (
-                          <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] text-slate-600 uppercase tracking-wider">
+                          <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] text-slate-600 uppercase tracking-wider shrink-0">
                             {debtor.batch}
                           </span>
                         )}
                       </p>
-                      <p className="text-xs font-medium text-slate-500 mt-0.5">{debtor.mobileNumber || "No Phone"}</p>
+                      <p className="text-xs font-medium text-slate-500 mt-0.5 truncate">{debtor.mobileNumber || "No Phone"}</p>
                     </div>
                   </div>
-                  <div className="text-right flex items-center gap-4">
-                    <div>
+                  <div className="flex items-center gap-4 shrink-0">
+                    <div className="text-right">
                       {balance > 0 ? (
-                        <p className="font-bold flex items-center justify-end gap-1.5 text-red-500">
+                        <p className="font-bold text-red-600 text-sm sm:text-base">
                           ₹{balance.toLocaleString()}
-                          <span className="bg-red-100 text-red-600 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-extrabold">(Dr) Debtor (Asset)</span>
                         </p>
                       ) : balance < 0 ? (
-                        <p className="font-bold flex items-center justify-end gap-1.5 text-emerald-500">
+                        <p className="font-bold text-emerald-600 text-sm sm:text-base">
                           ₹{Math.abs(balance).toLocaleString()}
-                          <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded text-[9px] uppercase tracking-wider font-extrabold">(Cr) Creditor (Liability)</span>
                         </p>
                       ) : (
-                        <p className="font-bold flex items-center justify-end gap-1.5 text-slate-400">
-                          <span className="bg-slate-100 text-slate-500 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider font-extrabold">Settled</span>
+                        <p className="font-bold text-slate-400 text-sm sm:text-base">
+                          ₹0
                         </p>
                       )}
-                      <p className="text-[10px] text-slate-400 font-medium uppercase mt-0.5">Balance</p>
+                      <p className="text-[10px] text-slate-400 font-medium uppercase mt-0">Balance</p>
                     </div>
-                    <div className="flex items-center gap-1 group-hover:opacity-100 transition-opacity">
-                      {/* Send Push Notification — shown when student has a balance */}
+                    <div className="flex items-center gap-1">
+                      {/* Send WhatsApp Reminder — shown when student has a balance */}
                       {balance > 0 && (
                         <button
-                          onClick={(e) => handleSendPush(e, debtor, balance)}
-                          disabled={pushingId === debtor.id}
-                          className="p-2 text-slate-300 hover:bg-amber-50 hover:text-amber-500 rounded-full transition-colors disabled:opacity-40"
-                          title="Send Push Notification"
+                          onClick={(e) => handleWhatsAppReminder(e, debtor, balance)}
+                          className="p-2 text-emerald-500 hover:bg-emerald-50 hover:text-emerald-700 rounded-full transition-colors"
+                          title="Send WhatsApp Reminder"
                         >
-                          {pushingId === debtor.id
-                            ? <span className="text-[10px] font-bold text-amber-500 animate-pulse">...</span>
-                            : <Bell size={16} />}
+                          <MessageCircle size={18} />
                         </button>
                       )}
                       {currentUser?.role === 'Admin' && (
@@ -332,7 +276,7 @@ export default function DebtorsPage() {
                             setEditPhone(debtor.mobileNumber);
                             setEditBatch(debtor.batch || "");
                           }}
-                          className="p-2 text-slate-300 hover:bg-slate-100 hover:text-primary rounded-full transition-colors"
+                          className="p-2 text-slate-300 hover:bg-slate-100 hover:text-primary rounded-full transition-colors hidden sm:flex"
                           title="Edit Student"
                         >
                           <Pencil size={16} />
@@ -341,7 +285,7 @@ export default function DebtorsPage() {
                       {currentUser?.role === 'Admin' && (
                         <button 
                           onClick={(e) => handleDeleteDebtor(e, debtor.id, debtor.name).catch(console.error)}
-                          className="p-2 text-slate-300 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors"
+                          className="p-2 text-slate-300 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors hidden sm:flex"
                           title="Delete Student"
                         >
                           <Trash2 size={16} />

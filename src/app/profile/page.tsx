@@ -11,18 +11,7 @@ import { getSession, clearSession } from "@/lib/auth";
 import { QRCodeSVG } from "qrcode.react";
 
 // ── UPI config ─────────────────────────────────────────────────────────────────
-// Replace the UPI ID below with your actual UPI ID before going live
 const UPI_ID = "muhammedanfaz123-1@oksbi";
-const PAYEE_NAME = "AMAN%20STORE";
-
-function buildUpiUrl(amount: number): string {
-  return `upi://pay?pa=${UPI_ID}&pn=${PAYEE_NAME}&am=${amount.toFixed(2)}&cu=INR`;
-}
-
-// GPay (Google Pay / Tez) deep-link — opens GPay directly, skipping the app picker
-function buildGPayUrl(amount: number): string {
-  return `tez://upi/pay?pa=${UPI_ID}&pn=${PAYEE_NAME}&am=${amount.toFixed(2)}&cu=INR&mc=0000`;
-}
 
 // Type for the browser's beforeinstallprompt event
 interface BeforeInstallPromptEvent extends Event {
@@ -39,9 +28,7 @@ export default function ProfilePage() {
   const [isInstalled, setIsInstalled] = useState(false);
   const [installBannerVisible, setInstallBannerVisible] = useState(false);
 
-  // Push notification state
-  const [pushSupported, setPushSupported] = useState(false);
-  const [pushPermission, setPushPermission] = useState<NotificationPermission>("default");
+
 
   // UPI payment state
   const [showQrSheet, setShowQrSheet] = useState(false);
@@ -87,77 +74,7 @@ export default function ProfilePage() {
     }
   }, [router]);
 
-  // Request push permission and subscribe once we have the user
-  useEffect(() => {
-    if (!user) return;
-    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
 
-    setPushSupported(true);
-    setPushPermission(Notification.permission);
-
-    // Only auto-request if still default (not yet asked)
-    if (Notification.permission === "default") {
-      Notification.requestPermission().then((perm) => {
-        setPushPermission(perm);
-        if (perm === "granted") subscribePush(user.id);
-      });
-    } else if (Notification.permission === "granted") {
-      subscribePush(user.id);
-    }
-  }, [user]);
-
-  async function subscribePush(userId: string) {
-    try {
-      const reg = await navigator.serviceWorker.ready;
-      // Convert base64 VAPID public key to Uint8Array (required by Chrome)
-      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-      if (!vapidKey) {
-        console.error("[Push] NEXT_PUBLIC_VAPID_PUBLIC_KEY is not set.");
-        return;
-      }
-      const keyBytes = urlBase64ToUint8Array(vapidKey);
-
-      // Unsubscribe any stale subscription first to avoid key-mismatch errors
-      const existing = await reg.pushManager.getSubscription();
-      if (existing) {
-        // Re-use if keys match, otherwise re-subscribe
-        try {
-          await fetch("/api/push-subscription", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ userId, subscription: existing.toJSON() }),
-          });
-          return;
-        } catch {
-          await existing.unsubscribe();
-        }
-      }
-
-      const subscription = await reg.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: keyBytes, // ✅ Must be Uint8Array, NOT the raw string
-      });
-
-      // Save to DB
-      await fetch("/api/push-subscription", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, subscription: subscription.toJSON() }),
-      });
-      console.log("[Push] Subscribed successfully for", userId);
-    } catch (err) {
-      console.error("[Push] Subscribe failed:", err);
-    }
-  }
-
-  function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuffer> {
-    const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
-    const raw = atob(base64);
-    const arr = new Uint8Array(raw.length);
-    for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
-    return arr;
-  }
 
   const handleLogout = () => {
     clearSession();
@@ -187,6 +104,8 @@ export default function ProfilePage() {
   );
 
   const currentBalance = studentAccount?.balance || 0;
+  const studentBalance = currentBalance;
+  const upiUrl = `upi://pay?pa=muhammedanfaz123-1@oksbi&pn=AMAN%20STORE&am=${studentBalance}&cu=INR&mc=8299&tn=Student_Fee_Payment`;
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 pb-20 sm:p-8">
@@ -293,15 +212,12 @@ export default function ProfilePage() {
           <div className="relative z-10">
             <p className="text-indigo-100 font-medium tracking-wide uppercase text-xs mb-1">Current Balance</p>
             {currentBalance === 0 ? (
-              <h3 className="text-4xl sm:text-5xl font-bold tracking-tight mb-2 text-indigo-200">
-                Settled
+              <h3 className="text-4xl sm:text-5xl font-bold tracking-tight mb-2 text-slate-400">
+                ₹0
               </h3>
             ) : (
-              <h3 className="text-4xl sm:text-5xl font-bold tracking-tight mb-2 flex items-center flex-wrap gap-3">
-                <span>₹{Math.abs(currentBalance).toLocaleString()}</span>
-                <span className={`text-xs font-bold px-3 py-1 rounded-full uppercase tracking-widest ${currentBalance > 0 ? 'bg-red-500/20 text-red-100 border border-red-500/30' : 'bg-emerald-500/20 text-emerald-100 border border-emerald-500/30'}`}>
-                  {currentBalance > 0 ? "Debtor (Asset)" : "Creditor (Liability)"}
-                </span>
+              <h3 className={`text-4xl sm:text-5xl font-bold tracking-tight mb-2 ${currentBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                ₹{Math.abs(currentBalance).toLocaleString()}
               </h3>
             )}
             <p className="text-sm text-indigo-100/80 font-medium">
@@ -337,17 +253,15 @@ export default function ProfilePage() {
 
               {/* Mobile Pay Now button — opens native UPI app */}
               {isMobile && (
-                <button
-                  onClick={() => {
-                    setPendingPaymentUrl(buildUpiUrl(currentBalance));
-                    setShowWarning(true);
-                  }}
+                <a
+                  href={upiUrl}
+                  onClick={() => { setPendingPaymentUrl(upiUrl); setTimeout(() => setShowWarning(true), 500); }}
                   className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-base tracking-wide shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition-all select-none"
                 >
                   <Smartphone size={20} />
                   Pay ₹{currentBalance.toLocaleString()} via UPI
                   <ExternalLink size={16} className="opacity-70" />
-                </button>
+                </a>
               )}
 
               {/* Desktop: always show QR; Mobile: toggle sheet */}
@@ -356,7 +270,7 @@ export default function ProfilePage() {
                 <div className="flex flex-col items-center gap-4 pt-2">
                   <div className="p-4 bg-white rounded-2xl border-2 border-slate-100 shadow-sm inline-block">
                     <QRCodeSVG
-                      value={buildUpiUrl(currentBalance)}
+                      value={upiUrl}
                       size={200}
                       bgColor="#ffffff"
                       fgColor="#1e293b"
@@ -371,11 +285,9 @@ export default function ProfilePage() {
                   <p className="text-[11px] text-slate-400 font-medium">Works with GPay · PhonePe · Paytm · BHIM</p>
 
                   {/* GPay Pay Now button — desktop */}
-                  <button
-                    onClick={() => {
-                      setPendingPaymentUrl(buildGPayUrl(currentBalance));
-                      setShowWarning(true);
-                    }}
+                  <a
+                    href={upiUrl}
+                    onClick={() => { setPendingPaymentUrl(upiUrl); setTimeout(() => setShowWarning(true), 500); }}
                     className="flex items-center justify-center gap-2.5 w-full py-3.5 rounded-2xl font-bold text-sm text-white tracking-wide shadow-lg active:scale-[0.98] transition-all select-none"
                     style={{ background: 'linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%)', boxShadow: '0 4px 15px rgba(26,115,232,0.35)' }}
                   >
@@ -386,7 +298,7 @@ export default function ProfilePage() {
                       <path d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.5 5.5C41.8 35.2 44 30 44 24c0-1.3-.1-2.7-.4-3.9z" fill="#1976D2"/>
                     </svg>
                     Pay Now with GPay
-                  </button>
+                  </a>
                 </div>
               ) : (
                 /* ── Mobile: QR toggle button ── */
@@ -425,7 +337,7 @@ export default function ProfilePage() {
                         <div className="flex flex-col items-center gap-4">
                           <div className="p-4 bg-white rounded-2xl border-2 border-slate-100 shadow-sm">
                             <QRCodeSVG
-                              value={buildUpiUrl(currentBalance)}
+                              value={upiUrl}
                               size={220}
                               bgColor="#ffffff"
                               fgColor="#1e293b"
@@ -440,11 +352,9 @@ export default function ProfilePage() {
                           <p className="text-[11px] text-slate-400 font-medium">GPay · PhonePe · Paytm · BHIM</p>
 
                           {/* GPay Pay Now button — inside mobile QR sheet */}
-                          <button
-                            onClick={() => {
-                              setPendingPaymentUrl(buildGPayUrl(currentBalance));
-                              setShowWarning(true);
-                            }}
+                          <a
+                            href={upiUrl}
+                            onClick={() => { setPendingPaymentUrl(upiUrl); setTimeout(() => setShowWarning(true), 500); }}
                             className="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl font-bold text-base text-white tracking-wide shadow-lg active:scale-[0.98] transition-all select-none"
                             style={{ background: 'linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%)', boxShadow: '0 4px 18px rgba(26,115,232,0.4)' }}
                           >
@@ -455,7 +365,7 @@ export default function ProfilePage() {
                               <path d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.5 5.5C41.8 35.2 44 30 44 24c0-1.3-.1-2.7-.4-3.9z" fill="#1976D2"/>
                             </svg>
                             Pay Now with GPay
-                          </button>
+                          </a>
                         </div>
                       </div>
                     </div>
