@@ -130,7 +130,7 @@ export default function JournalListPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {entry.lines.map((line, idx) => {
+                    {[...entry.lines].sort((a, b) => (a.type === b.type ? 0 : (a.type === 'Debit' ? -1 : 1))).map((line, idx) => {
                       const account = accounts.find(a => a.id === line.accountId);
                       return (
                         <tr key={idx} className="font-medium text-slate-700">

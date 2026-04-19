@@ -5,16 +5,27 @@ import { User as UserType } from "@/lib/types";
 import { 
   BookOpen, Library, TrendingUp, Users, KeyRound, 
   ArrowRight, BarChart2, Wallet, Receipt, Landmark,
-  Eye, EyeOff
+  Eye, EyeOff, Search
 } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 
 export default function DashboardPage() {
-  const { accounts } = useAccounting();
+  const { accounts, journalEntries } = useAccounting();
   const [studentUsers, setStudentUsers] = useState<UserType[]>([]);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [isListExpanded, setIsListExpanded] = useState(false);
+  const [credentialSearch, setCredentialSearch] = useState("");
+
+  const filteredStudentUsers = useMemo(() => {
+    if (!credentialSearch) return studentUsers;
+    const lower = credentialSearch.toLowerCase();
+    return studentUsers.filter(u => 
+      u.name.toLowerCase().includes(lower) || 
+      (u.phone && u.phone.includes(lower)) ||
+      (u.batch && u.batch.toLowerCase().includes(lower))
+    );
+  }, [studentUsers, credentialSearch]);
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -45,6 +56,27 @@ export default function DashboardPage() {
   const togglePassword = (id: string) => {
     setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
+
+  const [todayMetrics, setTodayMetrics] = useState({ sales: 0, collection: 0 });
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchStats = async () => {
+      try {
+        const res = await fetch('/api/dashboard/stats');
+        if (res.ok) {
+          const data = await res.json();
+          if (isMounted) {
+            setTodayMetrics({ sales: data.sales || 0, collection: data.collection || 0 });
+          }
+        }
+      } catch (err) {
+        console.error("Failed to fetch dashboard stats", err);
+      }
+    };
+    fetchStats();
+    return () => { isMounted = false; };
+  }, [journalEntries]);
 
   const totalSales = accounts.find(a => a.id === '4')?.balance || 0;
   const cashInHand = accounts.find(a => a.id === '1')?.balance || 0;
@@ -144,26 +176,65 @@ export default function DashboardPage() {
         <p className="text-sm text-slate-500 mt-0.5 text-left">Welcome back — here's your store summary.</p>
       </div>
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-8">
-        {stats.map(stat => (
-          <div
-            key={stat.label}
-            className="bg-white rounded-2xl shadow-sm hover:shadow-md transition-shadow overflow-hidden flex"
-          >
-            {/* Left accent bar */}
-            <div className={`w-1 shrink-0 ${stat.accent}`} />
-            <div className="flex items-center gap-3 px-4 py-4 flex-1">
-              <div className={`w-10 h-10 ${stat.bg} ${stat.color} rounded-xl flex items-center justify-center shrink-0`}>
-                <stat.icon size={19} />
-              </div>
-              <div className="min-w-0 text-left">
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1 truncate">{stat.label}</p>
-                <p className={`text-xl font-black leading-none ${stat.color}`}>{stat.value}</p>
-              </div>
+      {/* Key Metrics Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        
+        {/* Total Debtors */}
+        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500 transition-all hover:shadow-xl hover:-translate-y-1">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Debtors</p>
+            <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-rose-500 shrink-0">
+              <Users size={14} />
             </div>
           </div>
-        ))}
+          <h3 className="text-3xl font-black text-slate-800 tracking-tight">₹{totalAssets.toLocaleString()}</h3>
+        </div>
+
+        {/* Total Creditors */}
+        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500 transition-all delay-75 hover:shadow-xl hover:-translate-y-1">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Creditors</p>
+            <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-emerald-500 shrink-0">
+              <Receipt size={14} />
+            </div>
+          </div>
+          <h3 className="text-3xl font-black text-slate-800 tracking-tight">₹{totalLiabilities.toLocaleString()}</h3>
+        </div>
+
+        {/* Today's Sales */}
+        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500 transition-all delay-150 hover:shadow-xl hover:-translate-y-1">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Today's Sales</p>
+            <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-indigo-500 shrink-0">
+              <TrendingUp size={14} />
+            </div>
+          </div>
+          <h3 className="text-3xl font-black text-slate-800 tracking-tight">₹{todayMetrics.sales.toLocaleString()}</h3>
+        </div>
+
+        {/* Today's Collection */}
+        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500 transition-all delay-200 hover:shadow-xl hover:-translate-y-1">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Today's Collection</p>
+            <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-sky-500 shrink-0">
+              <Wallet size={14} />
+            </div>
+          </div>
+          <h3 className="text-3xl font-black text-slate-800 tracking-tight">₹{todayMetrics.collection.toLocaleString()}</h3>
+        </div>
+        
+      </div>
+      
+      {/* Balances Quick Look */}
+      <div className="flex gap-6 mb-8 px-2 animate-in fade-in duration-700">
+        <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Cash <span className="text-slate-800">₹{cashInHand.toLocaleString()}</span></span>
+        </div>
+        <div className="flex items-center gap-2">
+            <div className="w-2 h-2 rounded-full bg-cyan-500"></div>
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Bank <span className="text-slate-800">₹{bankBalance.toLocaleString()}</span></span>
+        </div>
       </div>
 
       {/* Modules */}
@@ -174,7 +245,7 @@ export default function DashboardPage() {
             <Link
               key={mod.title}
               href={mod.href}
-              className="group bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-md hover:border-slate-200 transition-all flex flex-col gap-3 text-left"
+              className="group bg-white border border-slate-100 rounded-2xl p-4 shadow-sm hover:shadow-xl hover:-translate-y-1 hover:border-indigo-200 transition-all duration-300 flex flex-col gap-3 text-left"
             >
               <div className={`w-10 h-10 ${mod.bg} ${mod.accent} rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform`}>
                 <mod.icon size={20} />
@@ -195,12 +266,22 @@ export default function DashboardPage() {
       <div className="my-8 border-t border-slate-100" />
 
       {/* Student Credentials */}
-      <div className="mb-4 flex items-center justify-between px-1">
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between px-1 gap-4">
         <div className="flex items-center gap-2">
           <KeyRound size={16} className="text-indigo-500" />
           <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">Student Credentials</h2>
         </div>
-        <span className="text-[11px] font-semibold text-slate-400">{studentUsers.length} students</span>
+        
+        <div className="relative w-full sm:w-64">
+          <Search size={14} className="absolute left-3.5 top-2.5 text-slate-400" />
+          <input 
+            type="text" 
+            placeholder="Search students..." 
+            value={credentialSearch}
+            onChange={(e) => setCredentialSearch(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-xs font-medium shadow-sm transition-all"
+          />
+        </div>
       </div>
 
       <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden text-left">
@@ -215,14 +296,14 @@ export default function DashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-50">
-              {studentUsers.length === 0 ? (
+              {filteredStudentUsers.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="px-5 py-10 text-center text-slate-400 text-sm italic">
-                    No students registered yet.
+                    No students match your search.
                   </td>
                 </tr>
               ) : (
-                (isListExpanded ? studentUsers : studentUsers.slice(0, 5)).map(student => (
+                (isListExpanded ? filteredStudentUsers : filteredStudentUsers.slice(0, 5)).map(student => (
                   <tr key={student.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-5 py-3 font-semibold text-slate-800 w-1/4 truncate">{student.name}</td>
                     <td className="px-5 py-3 w-1/4">
@@ -250,13 +331,15 @@ export default function DashboardPage() {
           </table>
         </div>
         
-        {studentUsers.length > 5 && (
-          <div className="p-3 border-t border-slate-50 bg-slate-50/30 text-center">
+        
+        {filteredStudentUsers.length > 5 && (
+          <div className="p-3 border-t border-slate-50 bg-slate-50/30 text-center flex items-center justify-between px-6">
+            <span className="text-[10px] text-slate-400 italic">Showing {filteredStudentUsers.length} total users</span>
             <button 
               onClick={() => setIsListExpanded(!isListExpanded)}
               className="text-[11px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors"
             >
-              {isListExpanded ? "Show Less" : `See More (${studentUsers.length - 5} more)`}
+              {isListExpanded ? "Show Less" : `See More (${filteredStudentUsers.length - 5} more)`}
             </button>
           </div>
         )}

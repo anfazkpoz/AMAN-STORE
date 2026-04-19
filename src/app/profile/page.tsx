@@ -11,7 +11,7 @@ import { getSession, clearSession } from "@/lib/auth";
 import { QRCodeSVG } from "qrcode.react";
 
 // ── UPI config ─────────────────────────────────────────────────────────────────
-const UPI_ID = "muhammedanfaz123-1@oksbi";
+const UPI_ID = "muhammedanfaz123_1@oksbi";
 
 // Type for the browser's beforeinstallprompt event
 interface BeforeInstallPromptEvent extends Event {
@@ -105,22 +105,26 @@ export default function ProfilePage() {
 
   const currentBalance = studentAccount?.balance || 0;
   const studentBalance = currentBalance;
-  const upiUrl = `upi://pay?pa=muhammedanfaz123-1@oksbi&pn=AMAN%20STORE&am=${studentBalance}&cu=INR&mc=8299&tn=Student_Fee_Payment`;
+  
+  let upiUrl = "";
+  try {
+    upiUrl = `upi://pay?pa=muhammedanfaz123-1@oksbi&pn=AMAN%20STORE&am=${Number(studentBalance).toFixed(2)}&cu=INR&mc=8299&tn=store%20cash`;
+  } catch (err) {
+    console.error("Failed to generate UPI URL", err);
+  }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 pb-20 sm:p-8">
-      <div className="max-w-xl mx-auto space-y-6 mt-4">
+    <div className="min-h-screen bg-transparent p-4 pb-20 sm:p-8">
+      <div className="max-w-xl mx-auto space-y-5 mt-4">
 
         {/* ⚠️ Pending Balance Alert Banner */}
         {currentBalance > 0 && (
-          <div className="relative overflow-hidden rounded-2xl border border-red-300 bg-red-600 shadow-lg shadow-red-500/30">
-            {/* Animated shimmer strip */}
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full animate-[shimmer_2.5s_infinite] pointer-events-none" />
+          <div className="relative overflow-hidden rounded-2xl border border-rose-200 bg-rose-50 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <div className="flex items-start gap-3 p-4">
-              <span className="text-2xl leading-none shrink-0 mt-0.5" aria-hidden="true">⚠️</span>
-              <p className="text-sm font-bold text-white leading-snug tracking-wide">
+              <span className="text-xl leading-none shrink-0" aria-hidden="true">⚠️</span>
+              <p className="text-sm font-semibold text-rose-800 leading-snug">
                 You have a pending balance of{" "}
-                <span className="text-yellow-300 text-base">
+                <span className="font-black text-rose-900">
                   ₹{Math.abs(currentBalance).toLocaleString()}
                 </span>
                 . Please clear it immediately.
@@ -131,23 +135,23 @@ export default function ProfilePage() {
 
         {/* PWA Install Banner */}
         {installBannerVisible && !isInstalled && (
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-4 flex items-center gap-3 shadow-lg text-white animate-in slide-in-from-top-4 fade-in duration-500">
-            <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center shrink-0 backdrop-blur-sm">
+          <div className="bg-slate-900 rounded-2xl p-4 flex items-center gap-3 shadow-lg text-white animate-in slide-in-from-top-4 fade-in duration-500">
+            <div className="w-10 h-10 bg-white/10 rounded-xl flex items-center justify-center shrink-0">
               <Download size={20} className="text-white" />
             </div>
             <div className="flex-1 min-w-0">
               <p className="font-bold text-sm">Install Aman Store</p>
-              <p className="text-indigo-100 text-xs">Add to your home screen for quick access</p>
+              <p className="text-slate-400 text-xs">Add to your home screen for quick access</p>
             </div>
             <button
               onClick={handleInstall}
-              className="shrink-0 bg-white text-indigo-600 font-bold text-xs px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors active:scale-95"
+              className="shrink-0 bg-white text-slate-900 font-bold text-xs px-4 py-2 rounded-xl hover:bg-slate-100 transition-colors active:scale-95"
             >
               Install
             </button>
             <button
               onClick={() => setInstallBannerVisible(false)}
-              className="shrink-0 text-white/60 hover:text-white transition-colors"
+              className="shrink-0 text-slate-500 hover:text-white transition-colors p-1"
             >
               <X size={16} />
             </button>
@@ -155,10 +159,10 @@ export default function ProfilePage() {
         )}
 
         {/* Header & Logout */}
-        <div className="flex justify-between items-center mb-6">
+        <div className="flex justify-between items-center mb-6 pt-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-75 fill-mode-both">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-slate-800">Student Portal</h1>
-            <p className="text-sm font-medium text-slate-500">{user.batch} Batch</p>
+            <h1 className="text-2xl font-black tracking-tight text-slate-800">Student Portal</h1>
+            <p className="text-xs font-bold tracking-widest uppercase text-slate-400 mt-0.5">{user.batch} Batch</p>
           </div>
           <div className="flex items-center gap-2">
             {/* Install App button (always visible if not installed and prompt available) */}
@@ -190,39 +194,39 @@ export default function ProfilePage() {
         </div>
 
         {/* Profile Details */}
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 flex items-center gap-5">
-          <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 shrink-0 shadow-inner">
-            <User size={30} />
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
+          <div className="w-14 h-14 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
+            <User size={24} />
           </div>
           <div>
-            <h2 className="text-xl font-bold text-slate-800">{user.name}</h2>
-            <div className="flex items-center gap-1.5 text-slate-500 font-medium text-sm mt-1">
-              <Phone size={14} />
+            <h2 className="text-lg font-black text-slate-800">{user.name}</h2>
+            <div className="flex items-center gap-1.5 text-slate-500 font-medium text-xs mt-0.5">
+              <Phone size={12} />
               <span>{user.phone}</span>
             </div>
           </div>
         </div>
 
         {/* Financial Overview Card */}
-        <div className="bg-gradient-to-br from-indigo-600 to-purple-700 rounded-3xl shadow-xl p-8 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-6 opacity-10">
-            <Banknote size={120} className="-rotate-12" />
+        <div className="bg-gradient-to-r from-slate-800 to-indigo-900 rounded-3xl shadow-xl shadow-indigo-900/20 p-8 text-white relative overflow-hidden animate-[slideInLeft_0.6s_ease-out_forwards] delay-150 fill-mode-both transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-900/40">
+          <div className="absolute top-0 right-0 p-8 opacity-5">
+            <Banknote size={160} className="-rotate-12 transform translate-x-4 -translate-y-4" />
           </div>
 
-          <div className="relative z-10">
-            <p className="text-indigo-100 font-medium tracking-wide uppercase text-xs mb-1">Current Balance</p>
+          <div className="relative z-10 flex flex-col items-center text-center">
+            <p className="text-slate-400 font-bold tracking-widest uppercase text-[10px] mb-2">Total Amount Due</p>
             {currentBalance === 0 ? (
-              <h3 className="text-4xl sm:text-5xl font-bold tracking-tight mb-2 text-slate-400">
+              <h3 className="text-5xl font-black tracking-tighter mb-1 text-slate-300">
                 ₹0
               </h3>
             ) : (
-              <h3 className={`text-4xl sm:text-5xl font-bold tracking-tight mb-2 ${currentBalance > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+              <h3 className={`text-6xl font-black tracking-tighter mb-1 ${currentBalance > 0 ? 'text-white' : 'text-emerald-400'}`}>
                 ₹{Math.abs(currentBalance).toLocaleString()}
               </h3>
             )}
-            <p className="text-sm text-indigo-100/80 font-medium">
+            <p className="text-xs text-slate-400 font-medium mt-3 px-6">
               {currentBalance > 0
-                ? "This is the amount you currently owe."
+                ? "This is the current outstanding amount."
                 : currentBalance < 0
                 ? "You have this amount in advance."
                 : "Your account is fully settled!"}
@@ -231,43 +235,34 @@ export default function ProfilePage() {
         </div>
 
         {/* ── UPI Payment Section ─────────────────────────────────────────── */}
-        {currentBalance > 0 && (
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-            {/* Header */}
-            <div className="px-6 pt-6 pb-4 border-b border-slate-100 flex items-center gap-3">
-              <div className="p-2 bg-emerald-50 rounded-xl">
-                <QrCode size={20} className="text-emerald-600" />
-              </div>
-              <div>
-                <h3 className="text-base font-bold text-slate-800">Pay Your Balance</h3>
-                <p className="text-xs text-slate-500 font-medium">via GPay, PhonePe, Paytm or any UPI app</p>
-              </div>
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200 fill-mode-both mb-8">
+          <div className="px-6 pt-6 pb-2 flex flex-col items-center text-center">
+            <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl mb-3">
+              <QrCode size={20} className="text-slate-700" />
             </div>
+            <h3 className="text-lg font-black text-slate-800">Pay Instantly</h3>
+            <p className="text-xs text-slate-500 font-medium mt-1">Supports GPay, PhonePe, Paytm, and all UPI apps.</p>
+          </div>
 
-            <div className="p-6 space-y-5">
-              {/* Amount pill */}
-              <div className="flex items-center justify-between bg-red-50 border border-red-100 rounded-2xl px-5 py-3.5">
-                <span className="text-sm font-semibold text-red-700">Amount Due</span>
-                <span className="text-2xl font-black text-red-600">₹{currentBalance.toLocaleString()}</span>
+          <div className="p-6">
+            {studentBalance <= 0 ? (
+              <div className="text-center p-8 bg-emerald-50 rounded-2xl border border-emerald-100 mb-2">
+                <p className="text-emerald-700 font-bold text-lg">You have no pending dues.</p>
+                <p className="text-emerald-600 text-sm mt-1">Your account is fully settled!</p>
               </div>
-
-              {/* Mobile Pay Now button — opens native UPI app */}
-              {isMobile && (
+            ) : upiUrl ? (
+              <div className="flex flex-col items-center">
+                {/* Mobile View */}
                 <a
                   href={upiUrl}
                   onClick={() => { setPendingPaymentUrl(upiUrl); setTimeout(() => setShowWarning(true), 500); }}
-                  className="flex items-center justify-center gap-3 w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-bold text-base tracking-wide shadow-lg shadow-emerald-500/30 active:scale-[0.98] transition-all select-none"
+                  className="block md:hidden w-full py-4 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white text-center font-bold text-base tracking-wide shadow-lg shadow-indigo-500/40 hover:shadow-indigo-500/60 active:scale-[0.98] transition-all duration-300 select-none animate-in"
                 >
-                  <Smartphone size={20} />
-                  Pay ₹{currentBalance.toLocaleString()} via UPI
-                  <ExternalLink size={16} className="opacity-70" />
+                  Pay via GPay / UPI
                 </a>
-              )}
 
-              {/* Desktop: always show QR; Mobile: toggle sheet */}
-              {!isMobile ? (
-                /* ── Desktop QR + GPay button ── */
-                <div className="flex flex-col items-center gap-4 pt-2">
+                {/* Desktop View */}
+                <div className="hidden md:flex flex-col items-center gap-4 pt-2">
                   <div className="p-4 bg-white rounded-2xl border-2 border-slate-100 shadow-sm inline-block">
                     <QRCodeSVG
                       value={upiUrl}
@@ -280,109 +275,23 @@ export default function ProfilePage() {
                   </div>
                   <p className="text-sm font-semibold text-slate-600 text-center">
                     Scan with any UPI app to pay{" "}
-                    <span className="text-emerald-600 font-bold">₹{currentBalance.toLocaleString()}</span>
+                    <span className="text-emerald-600 font-bold">₹{Number(studentBalance).toLocaleString()}</span>
                   </p>
-                  <p className="text-[11px] text-slate-400 font-medium">Works with GPay · PhonePe · Paytm · BHIM</p>
-
-                  {/* GPay Pay Now button — desktop */}
-                  <a
-                    href={upiUrl}
-                    onClick={() => { setPendingPaymentUrl(upiUrl); setTimeout(() => setShowWarning(true), 500); }}
-                    className="flex items-center justify-center gap-2.5 w-full py-3.5 rounded-2xl font-bold text-sm text-white tracking-wide shadow-lg active:scale-[0.98] transition-all select-none"
-                    style={{ background: 'linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%)', boxShadow: '0 4px 15px rgba(26,115,232,0.35)' }}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      <path d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.6 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z" fill="#FFC107"/>
-                      <path d="M6.3 14.7l6.6 4.8C14.6 15.9 19 13 24 13c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.6 29.5 4 24 4 16.3 4 9.7 8.4 6.3 14.7z" fill="#FF3D00"/>
-                      <path d="M24 44c5.4 0 10.3-2.1 14-5.4l-6.5-5.5C29.5 35 26.9 36 24 36c-5.3 0-9.7-3.3-11.3-8H6.1C9.4 35.7 16.2 44 24 44z" fill="#4CAF50"/>
-                      <path d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.5 5.5C41.8 35.2 44 30 44 24c0-1.3-.1-2.7-.4-3.9z" fill="#1976D2"/>
-                    </svg>
-                    Pay Now with GPay
-                  </a>
+                  <p className="text-[11px] text-slate-400 font-medium pb-2">Supports all major UPI apps</p>
                 </div>
-              ) : (
-                /* ── Mobile: QR toggle button ── */
-                <>
-                  <button
-                    onClick={() => setShowQrSheet(true)}
-                    className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl border-2 border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-600 font-bold text-sm transition-all active:scale-[0.98]"
-                  >
-                    <QrCode size={16} />
-                    Show QR Code Instead
-                  </button>
-
-                  {/* QR Bottom Sheet */}
-                  {showQrSheet && (
-                    <div className="fixed inset-0 z-[200] flex items-end justify-center" onClick={() => setShowQrSheet(false)}>
-                      {/* Backdrop */}
-                      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-                      {/* Sheet */}
-                      <div
-                        className="relative w-full max-w-sm bg-white rounded-t-3xl p-6 pb-10 shadow-2xl animate-in slide-in-from-bottom-8 duration-300"
-                        onClick={e => e.stopPropagation()}
-                      >
-                        <div className="flex items-center justify-between mb-5">
-                          <div>
-                            <h4 className="font-bold text-slate-800 text-base">Scan to Pay</h4>
-                            <p className="text-xs text-slate-500">Open camera or any UPI app</p>
-                          </div>
-                          <button
-                            onClick={() => setShowQrSheet(false)}
-                            className="p-2 rounded-full hover:bg-slate-100 text-slate-400"
-                          >
-                            <X size={18} />
-                          </button>
-                        </div>
-
-                        <div className="flex flex-col items-center gap-4">
-                          <div className="p-4 bg-white rounded-2xl border-2 border-slate-100 shadow-sm">
-                            <QRCodeSVG
-                              value={upiUrl}
-                              size={220}
-                              bgColor="#ffffff"
-                              fgColor="#1e293b"
-                              level="H"
-                              includeMargin={false}
-                            />
-                          </div>
-                          <p className="text-sm font-semibold text-slate-600 text-center">
-                            Scan with any UPI app to pay{" "}
-                            <span className="text-emerald-600 font-bold">₹{currentBalance.toLocaleString()}</span>
-                          </p>
-                          <p className="text-[11px] text-slate-400 font-medium">GPay · PhonePe · Paytm · BHIM</p>
-
-                          {/* GPay Pay Now button — inside mobile QR sheet */}
-                          <a
-                            href={upiUrl}
-                            onClick={() => { setPendingPaymentUrl(upiUrl); setTimeout(() => setShowWarning(true), 500); }}
-                            className="flex items-center justify-center gap-2.5 w-full py-4 rounded-2xl font-bold text-base text-white tracking-wide shadow-lg active:scale-[0.98] transition-all select-none"
-                            style={{ background: 'linear-gradient(135deg, #1a73e8 0%, #0d47a1 100%)', boxShadow: '0 4px 18px rgba(26,115,232,0.4)' }}
-                          >
-                            <svg width="22" height="22" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <path d="M43.6 20.1H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.6 29.5 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.9z" fill="#FFC107"/>
-                              <path d="M6.3 14.7l6.6 4.8C14.6 15.9 19 13 24 13c3.1 0 5.8 1.1 8 2.9l5.7-5.7C34.5 6.6 29.5 4 24 4 16.3 4 9.7 8.4 6.3 14.7z" fill="#FF3D00"/>
-                              <path d="M24 44c5.4 0 10.3-2.1 14-5.4l-6.5-5.5C29.5 35 26.9 36 24 36c-5.3 0-9.7-3.3-11.3-8H6.1C9.4 35.7 16.2 44 24 44z" fill="#4CAF50"/>
-                              <path d="M43.6 20.1H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4 5.5l6.5 5.5C41.8 35.2 44 30 44 24c0-1.3-.1-2.7-.4-3.9z" fill="#1976D2"/>
-                            </svg>
-                            Pay Now with GPay
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
+              </div>
+            ) : (
+              <div className="text-center p-6 text-rose-500 font-bold bg-rose-50 rounded-2xl border border-rose-100">
+                Failed to load payment options. Please try again later.
+              </div>
+            )}
           </div>
-        )}
+        </div>
 
         {/* Transaction History Statement */}
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-          <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-            <div className="p-2 bg-indigo-50 rounded-xl">
-              <History size={20} className="text-indigo-600" />
-            </div>
-            <h3 className="text-lg font-bold text-slate-800">Your Statement</h3>
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300 fill-mode-both mb-8">
+          <div className="p-6 border-b border-slate-50 flex items-center gap-3">
+            <h3 className="text-base font-black text-slate-800">Recent Transactions</h3>
           </div>
 
           {studentTransactions.length === 0 ? (

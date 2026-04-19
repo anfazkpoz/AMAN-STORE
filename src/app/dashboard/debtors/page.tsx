@@ -1,7 +1,7 @@
 "use client";
-import { Users, Search, Filter, Plus, ArrowDownCircle, ArrowUpCircle, X, User as UserIcon, Phone, KeyRound, CheckCircle2, Trash2, Eye, EyeOff, Pencil, MessageCircle } from 'lucide-react';
+import { Users, Search, Filter, Plus, ArrowDownCircle, ArrowUpCircle, X, User as UserIcon, Phone, KeyRound, CheckCircle2, Trash2, Eye, EyeOff, Pencil, MessageCircle, MoreVertical, TrendingUp, Wallet } from 'lucide-react';
 import { useAccounting } from '@/lib/AccountingContext';
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Batch, User, Debtor } from '@/lib/types';
 import { useRouter } from 'next/navigation';
 
@@ -42,6 +42,36 @@ export default function DebtorsPage() {
   // Student Search in Modal
   const [modalBatch, setModalBatch] = useState<Batch | "">("");
   const [modalSearch, setModalSearch] = useState("");
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setOpenMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("touchstart", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("touchstart", handleClickOutside);
+    };
+  }, []);
+
+  const modalFilteredDebtors = useMemo(() => {
+    return debtors.filter(d => {
+      const matchesBatch = !modalBatch || d.batch === modalBatch;
+      const matchesSearch = d.name.toLowerCase().includes(modalSearch.toLowerCase()) || (d.mobileNumber || '').includes(modalSearch);
+      return matchesBatch && matchesSearch;
+    }).sort((a,b) => a.name.localeCompare(b.name));
+  }, [debtors, modalBatch, modalSearch]);
+
+  useEffect(() => {
+    if (modalSearch && modalFilteredDebtors.length === 1) {
+      setQaStudentId(modalFilteredDebtors[0].id);
+    }
+  }, [modalSearch, modalFilteredDebtors]);
 
   useEffect(() => {
     const userStr = sessionStorage.getItem("aman_store_current_user");
@@ -54,8 +84,10 @@ export default function DebtorsPage() {
   const filteredDebtors = useMemo(() => {
     return [...debtors]
       .filter(d => {
-        const matchesSearch = d.name.toLowerCase().includes(search.toLowerCase()) || 
-                              d.mobileNumber.includes(search);
+        const nameStr = d.name || "";
+        const mobileStr = d.mobileNumber || "";
+        const searchLow = search.toLowerCase();
+        const matchesSearch = nameStr.toLowerCase().includes(searchLow) || mobileStr.includes(searchLow);
         const matchesBatch = batchFilter === "All" || d.batch === batchFilter;
         return matchesSearch && matchesBatch;
       })
@@ -202,9 +234,9 @@ export default function DebtorsPage() {
 
       <div className="px-4 sm:px-8 mt-6">
 
-      <div className="bg-white border text-left border-slate-200 rounded-2xl shadow-sm overflow-hidden mb-8">
+      <div className="text-left mb-8">
         {filteredDebtors.length === 0 ? (
-          <div className="p-12 text-center flex flex-col items-center">
+          <div className="p-12 text-center flex flex-col items-center bg-white border border-slate-200 rounded-2xl shadow-sm">
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-3">
               <Users size={28} className="text-slate-400" />
             </div>
@@ -212,8 +244,8 @@ export default function DebtorsPage() {
             <p className="text-sm text-slate-500 mt-1">Try adjusting your filters or search query.</p>
           </div>
         ) : (
-          <div className="divide-y divide-slate-100">
-            {filteredDebtors.map(debtor => {
+          <div className="flex flex-col gap-3">
+            {filteredDebtors.map((debtor, index) => {
               const acc = accounts.find(a => a.id === debtor.accountId);
               const balance = acc?.balance || debtor.currentBalance || 0;
               
@@ -221,77 +253,136 @@ export default function DebtorsPage() {
                 <div 
                   key={debtor.id} 
                   onClick={() => router.push(`/dashboard/debtors/${debtor.id}`)}
-                  className="p-4 sm:px-6 hover:bg-slate-50 cursor-pointer transition-colors flex items-center justify-between group"
+                  className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 relative p-4 sm:px-6 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between group gap-3 sm:gap-0 animate-in fade-in slide-in-from-bottom-4 fill-mode-both border border-transparent hover:border-indigo-50 hover:-translate-y-0.5 ${openMenuId === debtor.id ? 'z-50' : 'z-0'}`}
+                  style={{ animationDelay: `${index * 50}ms` }}
                 >
-                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold shrink-0">
-                      {debtor.name.charAt(0).toUpperCase()}
+                  <div className="flex items-start sm:items-center justify-between w-full">
+                    <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 pr-3">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 font-bold shrink-0 mt-0.5 sm:mt-0">
+                        {debtor.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-bold text-slate-800 flex flex-wrap items-center gap-2 group-hover:text-indigo-600 transition-colors">
+                          <span className="whitespace-normal break-words">{debtor.name}</span>
+                          {debtor.batch && (
+                            <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] text-slate-600 uppercase tracking-wider shrink-0 mt-0.5 sm:mt-0">
+                              {debtor.batch}
+                            </span>
+                          )}
+                        </p>
+                        <p className="hidden sm:block text-xs font-medium text-slate-500 mt-1 sm:mt-0.5 truncate">{debtor.mobileNumber || "No Phone"}</p>
+                      </div>
                     </div>
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-800 flex items-center gap-2 group-hover:text-indigo-600 transition-colors truncate">
-                        <span className="truncate">{debtor.name}</span>
-                        {debtor.batch && (
-                          <span className="px-2 py-0.5 rounded bg-slate-100 text-[10px] text-slate-600 uppercase tracking-wider shrink-0">
-                            {debtor.batch}
-                          </span>
+                    
+                    <div className="flex items-center gap-3 shrink-0">
+                      <div className="text-right">
+                        {balance > 0 ? (
+                          <p className="font-bold text-red-600 text-sm sm:text-base">
+                            ₹{balance.toLocaleString()}
+                          </p>
+                        ) : balance < 0 ? (
+                          <p className="font-bold text-emerald-600 text-sm sm:text-base">
+                            ₹{Math.abs(balance).toLocaleString()}
+                          </p>
+                        ) : (
+                          <p className="font-bold text-slate-400 text-sm sm:text-base">
+                            ₹0
+                          </p>
                         )}
-                      </p>
-                      <p className="text-xs font-medium text-slate-500 mt-0.5 truncate">{debtor.mobileNumber || "No Phone"}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 shrink-0">
-                    <div className="text-right">
-                      {balance > 0 ? (
-                        <p className="font-bold text-red-600 text-sm sm:text-base">
-                          ₹{balance.toLocaleString()}
-                        </p>
-                      ) : balance < 0 ? (
-                        <p className="font-bold text-emerald-600 text-sm sm:text-base">
-                          ₹{Math.abs(balance).toLocaleString()}
-                        </p>
-                      ) : (
-                        <p className="font-bold text-slate-400 text-sm sm:text-base">
-                          ₹0
-                        </p>
-                      )}
-                      <p className="text-[10px] text-slate-400 font-medium uppercase mt-0">Balance</p>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      {/* Send WhatsApp Reminder — shown when student has a balance */}
-                      {balance > 0 && (
-                        <button
-                          onClick={(e) => handleWhatsAppReminder(e, debtor, balance)}
-                          className="p-2 text-emerald-500 hover:bg-emerald-50 hover:text-emerald-700 rounded-full transition-colors"
-                          title="Send WhatsApp Reminder"
-                        >
-                          <MessageCircle size={18} />
-                        </button>
-                      )}
-                      {currentUser?.role === 'Admin' && (
+                        <p className="text-[10px] text-slate-400 font-medium uppercase mt-0">Balance</p>
+                      </div>
+
+                      {/* Mobile Three-Dot Menu Trigger */}
+                      <div className="sm:hidden relative" ref={openMenuId === debtor.id ? menuRef : null}>
                         <button 
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
-                            setEditingDebtor(debtor);
-                            setEditName(debtor.name);
-                            setEditPhone(debtor.mobileNumber);
-                            setEditBatch(debtor.batch || "");
+                            setOpenMenuId(openMenuId === debtor.id ? null : debtor.id);
                           }}
-                          className="p-2 text-slate-300 hover:bg-slate-100 hover:text-primary rounded-full transition-colors hidden sm:flex"
-                          title="Edit Student"
+                          className="p-2 -mr-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100 transition-colors flex items-center justify-center"
                         >
-                          <Pencil size={16} />
+                          <MoreVertical size={20} />
                         </button>
-                      )}
-                      {currentUser?.role === 'Admin' && (
-                        <button 
-                          onClick={(e) => handleDeleteDebtor(e, debtor.id, debtor.name).catch(console.error)}
-                          className="p-2 text-slate-300 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors hidden sm:flex"
-                          title="Delete Student"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      )}
+
+                        {/* Mobile Dropdown Menu */}
+                        {openMenuId === debtor.id && (
+                          <div className="absolute top-10 right-0 mt-2 bg-white rounded-md shadow-lg border border-slate-100 p-1.5 min-w-[140px] z-50 flex flex-col gap-0.5 animate-in fade-in zoom-in-95 origin-top-right" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
+                            {balance > 0 && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); handleWhatsAppReminder(e, debtor, balance); }}
+                                className="w-full text-left px-3 py-2 text-sm font-bold text-emerald-600 hover:bg-emerald-50 rounded-md flex items-center gap-2.5 transition-colors"
+                              >
+                                <MessageCircle size={16} className="shrink-0" />
+                                <span>Reminder</span>
+                              </button>
+                            )}
+                            {currentUser?.role === 'Admin' && (
+                              <button 
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setOpenMenuId(null);
+                                  setEditingDebtor(debtor);
+                                  setEditName(debtor.name);
+                                  setEditPhone(debtor.mobileNumber);
+                                  setEditBatch(debtor.batch || "");
+                                }}
+                                className="w-full text-left px-3 py-2 text-sm font-bold text-slate-600 hover:text-indigo-600 hover:bg-slate-50 rounded-md flex items-center gap-2.5 transition-colors"
+                              >
+                                <Pencil size={16} className="shrink-0" />
+                                <span>Edit</span>
+                              </button>
+                            )}
+                            {currentUser?.role === 'Admin' && (
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); handleDeleteDebtor(e, debtor.id, debtor.name).catch(console.error); }}
+                                className="w-full text-left px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-md flex items-center gap-2.5 transition-colors"
+                              >
+                                <Trash2 size={16} className="shrink-0" />
+                                <span>Delete</span>
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
+                  </div>
+
+                  {/* Desktop Actions - Hidden on mobile, visible on sm and larger */}
+                  <div className="hidden sm:flex items-center gap-1 shrink-0 ml-4">
+                    {balance > 0 && (
+                      <button
+                        onClick={(e) => handleWhatsAppReminder(e, debtor, balance)}
+                        className="p-2 text-emerald-500 hover:bg-emerald-50 hover:text-emerald-700 rounded-full transition-colors flex"
+                        title="Send WhatsApp Reminder"
+                      >
+                        <MessageCircle size={18} />
+                      </button>
+                    )}
+                    {currentUser?.role === 'Admin' && (
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingDebtor(debtor);
+                          setEditName(debtor.name);
+                          setEditPhone(debtor.mobileNumber);
+                          setEditBatch(debtor.batch || "");
+                        }}
+                        className="p-2 text-slate-300 hover:bg-slate-100 hover:text-primary rounded-full transition-colors flex"
+                        title="Edit Student"
+                      >
+                        <Pencil size={16} />
+                      </button>
+                    )}
+                    {currentUser?.role === 'Admin' && (
+                      <button 
+                        onClick={(e) => handleDeleteDebtor(e, debtor.id, debtor.name).catch(console.error)}
+                        className="p-2 text-slate-300 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors flex"
+                        title="Delete Student"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -304,17 +395,17 @@ export default function DebtorsPage() {
 
       {/* Fixed Footer - Perfectly centered in the content area */}
       <div className="fixed bottom-24 md:bottom-8 md:pl-64 left-0 right-0 z-[45] flex justify-center pointer-events-none">
-        <div className="w-full max-w-4xl px-4 sm:px-8 grid grid-cols-2 gap-4 pointer-events-auto">
+        <div className="flex w-full max-w-4xl items-center justify-center gap-4 px-4 py-3 pointer-events-auto">
           <button 
             onClick={() => setQuickMode('Debit')}
-            className="flex flex-col items-center justify-center gap-2 bg-white/95 backdrop-blur hover:bg-white border-2 border-red-50 text-red-600 py-3.5 rounded-2xl transition-all shadow-xl group active:scale-[0.98] ring-1 ring-black/[0.03]"
+            className="flex-1 flex flex-col items-center justify-center gap-2 bg-white/95 backdrop-blur hover:bg-white border-2 border-red-50 text-red-600 py-3.5 rounded-2xl transition-all shadow-lg shadow-red-500/20 hover:shadow-red-500/40 group active:scale-[0.98] ring-1 ring-black/[0.03]"
           >
             <ArrowUpCircle size={24} className="group-hover:-translate-y-1 transition-transform" />
             <span className="font-bold text-[12px] uppercase tracking-wide">Add Debit</span>
           </button>
           <button 
             onClick={() => setQuickMode('Credit')}
-            className="flex flex-col items-center justify-center gap-2 bg-white/95 backdrop-blur hover:bg-white border-2 border-emerald-50 text-emerald-600 py-3.5 rounded-2xl transition-all shadow-xl group active:scale-[0.98] ring-1 ring-black/[0.03]"
+            className="flex-1 flex flex-col items-center justify-center gap-2 bg-white/95 backdrop-blur hover:bg-white border-2 border-emerald-50 text-emerald-600 py-3.5 rounded-2xl transition-all shadow-lg shadow-emerald-500/20 hover:shadow-emerald-500/40 group active:scale-[0.98] ring-1 ring-black/[0.03]"
           >
             <ArrowDownCircle size={24} className="group-hover:translate-y-1 transition-transform" />
             <span className="font-bold text-[12px] uppercase tracking-wide">Add Credit</span>
@@ -389,22 +480,29 @@ export default function DebtorsPage() {
                     try {
                       let narration = "";
                       let msg = "";
+                      let transactionLines: any[] = [];
+                      
                       if (quickMode === "Debit") {
                         narration = `Student Charge (Fees/Sales)`;
                         msg = `✓ Debit posted successfully!`;
+                        transactionLines = [
+                          { id: Math.random().toString(), accountId: student.accountId, type: "Debit", amount: Number(qaAmount) },
+                          { id: Math.random().toString(), accountId: selectedOppAcc.id, type: "Credit", amount: Number(qaAmount) }
+                        ];
                       } else {
                         narration = `Quick Payment via ${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'}`;
                         msg = `✓ Credit posted successfully via ${qaOppositeAccount === 'cash' ? 'Cash' : 'Bank'}!`;
+                        transactionLines = [
+                          { id: Math.random().toString(), accountId: selectedOppAcc.id, type: "Debit", amount: Number(qaAmount) },
+                          { id: Math.random().toString(), accountId: student.accountId, type: "Credit", amount: Number(qaAmount) }
+                        ];
                       }
 
                       await addJournalEntry({
                          date: new Date().toISOString().split("T")[0],
                          narration,
                          lf: "",
-                         lines: [
-                           { id: Math.random().toString(), accountId: student.accountId, type: quickMode, amount: Number(qaAmount) },
-                           { id: Math.random().toString(), accountId: selectedOppAcc.id, type: quickMode === "Debit" ? "Credit" : "Debit", amount: Number(qaAmount) }
-                         ],
+                         lines: transactionLines,
                          createdBy: currentUser?.name || 'System'
                       });
                       
@@ -458,15 +556,11 @@ export default function DebtorsPage() {
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 outline-none text-sm font-bold text-slate-800 mt-2"
                     >
                       <option value="">--- Choose Student ---</option>
-                      {debtors
-                        .filter(d => {
-                          const matchesBatch = !modalBatch || d.batch === modalBatch;
-                          const matchesSearch = d.name.toLowerCase().includes(modalSearch.toLowerCase()) || d.mobileNumber?.includes(modalSearch);
-                          return matchesBatch && matchesSearch;
-                        })
-                        .sort((a,b) => a.name.localeCompare(b.name))
-                        .map(d => <option key={d.id} value={d.id}>{d.name} ({d.batch || '?'})</option>)
-                      }
+                      {modalFilteredDebtors.length === 0 ? (
+                        <option disabled value="no_student_found">No student found</option>
+                      ) : (
+                        modalFilteredDebtors.map(d => <option key={d.id} value={d.id}>{d.name} ({d.batch || '?'})</option>)
+                      )}
                     </select>
                   </div>
 

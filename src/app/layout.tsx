@@ -52,7 +52,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Aman Store" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      <body className="min-h-full flex flex-col">
+      <body className="min-h-full flex flex-col bg-gradient-to-br from-indigo-50 via-white to-purple-50 bg-fixed">
         <ServiceWorkerRegistrar />
         <AccountingProvider>{children}</AccountingProvider>
       </body>
