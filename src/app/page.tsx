@@ -22,6 +22,7 @@ export default function AuthPage() {
   
   const [error, setError] = useState("");
   const [showForgot, setShowForgot] = useState(false);
+  const [isRegistrationEnabled, setIsRegistrationEnabled] = useState(true);
   const router = useRouter();
   const { reloadData } = useAccounting();
 
@@ -34,6 +35,20 @@ export default function AuthPage() {
       else router.replace("/profile");
     }
   }, [router]);
+
+  // Fetch registration toggle
+  useEffect(() => {
+    fetch('/api/settings/registration')
+      .then(r => r.json())
+      .then(d => {
+        const enabled = d.isRegistrationEnabled ?? true;
+        setIsRegistrationEnabled(enabled);
+        // If registration is OFF and user is on the register view, snap back to login
+        if (!enabled && isRegister) setIsRegister(false);
+      })
+      .catch(() => setIsRegistrationEnabled(true));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -306,7 +321,7 @@ export default function AuthPage() {
             </button>
           </form>
 
-          {isStudent && (
+          {isStudent && isRegistrationEnabled && (
             <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-center">
               <span className="text-xs font-medium text-slate-500 mr-2">
                 {isRegister ? "Already registered?" : "New student?"}

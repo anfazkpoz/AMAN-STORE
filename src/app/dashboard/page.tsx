@@ -5,8 +5,9 @@ import { User as UserType } from "@/lib/types";
 import { 
   BookOpen, Library, TrendingUp, Users, KeyRound, 
   ArrowRight, BarChart2, Wallet, Receipt, Landmark,
-  Eye, EyeOff, Search
+  Eye, EyeOff, Search, ToggleLeft, ToggleRight
 } from "lucide-react";
+import WeeklyStatusChart from "@/components/WeeklyStatusChart";
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
 
@@ -16,6 +17,8 @@ export default function DashboardPage() {
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [isListExpanded, setIsListExpanded] = useState(false);
   const [credentialSearch, setCredentialSearch] = useState("");
+  const [isRegistrationEnabled, setIsRegistrationEnabled] = useState<boolean | null>(null);
+  const [isTogglingReg, setIsTogglingReg] = useState(false);
 
   const filteredStudentUsers = useMemo(() => {
     if (!credentialSearch) return studentUsers;
@@ -53,9 +56,67 @@ export default function DashboardPage() {
     fetchStudents();
   }, []);
 
+  // Fetch registration toggle state
+  useEffect(() => {
+    fetch('/api/settings/registration')
+      .then(r => r.json())
+      .then(d => setIsRegistrationEnabled(d.isRegistrationEnabled ?? true))
+      .catch(() => setIsRegistrationEnabled(true));
+  }, []);
+
+  const handleToggleRegistration = async () => {
+    if (isTogglingReg || isRegistrationEnabled === null) return;
+    const newValue = !isRegistrationEnabled;
+    setIsRegistrationEnabled(newValue); // optimistic
+    setIsTogglingReg(true);
+    try {
+      const res = await fetch('/api/settings/registration', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isRegistrationEnabled: newValue }),
+      });
+      if (!res.ok) setIsRegistrationEnabled(!newValue); // revert on failure
+    } catch {
+      setIsRegistrationEnabled(!newValue);
+    } finally {
+      setIsTogglingReg(false);
+    }
+  };
+
   const togglePassword = (id: string) => {
     setShowPasswords(prev => ({ ...prev, [id]: !prev[id] }));
   };
+
+  // Sun-to-Sat weekly status data (strict Sunday start)
+  const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const weeklyStatusData = useMemo(() => {
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0 = Sun
+    const weekStart = new Date(now);
+    weekStart.setHours(0, 0, 0, 0);
+    weekStart.setDate(weekStart.getDate() - dayOfWeek);
+
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    weekEnd.setHours(23, 59, 59, 999);
+
+    const dayMap: Record<string, number> = {};
+    DAYS.forEach((d) => (dayMap[d] = 0));
+
+    journalEntries.forEach((entry) => {
+      const entryDate = new Date(entry.date);
+      if (entryDate < weekStart || entryDate > weekEnd) return;
+      const salesLine = entry.lines.find(
+        (l) => l.accountId === "4" && l.type === "Credit"
+      );
+      if (salesLine) {
+        const dayName = DAYS[entryDate.getDay()];
+        dayMap[dayName] = (dayMap[dayName] || 0) + salesLine.amount;
+      }
+    });
+
+    return DAYS.map((day) => ({ day, amount: dayMap[day] }));
+  }, [journalEntries]);
 
   const [todayMetrics, setTodayMetrics] = useState({ sales: 0, collection: 0 });
 
@@ -263,6 +324,37 @@ export default function DashboardPage() {
       </div>
 
       {/* Divider */}
+      <div className="my-8 border-t border-slate-100" />
+
+      {/* Weekly Status Chart (Sun–Sat) */}
+      <WeeklyStatusChart data={weeklyStatusData} />
+      <div className="my-8 border-t border-slate-100" />
+
+      {/* Registration Toggle */}
+      <div className="mb-8 bg-white border border-slate-100 rounded-2xl shadow-sm p-5 flex items-center justify-between gap-4 animate-in fade-in duration-500">
+        <div className="flex flex-col gap-0.5">
+          <p className="text-sm font-bold text-slate-800">Student Registrations</p>
+          <p className="text-xs text-slate-500">
+            {isRegistrationEnabled
+              ? 'New students can currently register themselves.'
+              : 'Self-registration is currently disabled.'}
+          </p>
+        </div>
+        <button
+          onClick={handleToggleRegistration}
+          disabled={isTogglingReg || isRegistrationEnabled === null}
+          title={isRegistrationEnabled ? 'Click to disable registrations' : 'Click to enable registrations'}
+          className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-sm transition-all border-2 shrink-0 ${
+            isRegistrationEnabled
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
+              : 'bg-slate-50 border-slate-200 text-slate-500 hover:bg-slate-100'
+          } ${isTogglingReg ? 'opacity-60 cursor-not-allowed' : 'active:scale-[0.97]'}`}
+        >
+          {isRegistrationEnabled
+            ? <><ToggleRight size={22} className="text-emerald-600" /> Enabled</>  
+            : <><ToggleLeft size={22} className="text-slate-400" /> Disabled</>}
+        </button>
+      </div>
       <div className="my-8 border-t border-slate-100" />
 
       {/* Student Credentials */}

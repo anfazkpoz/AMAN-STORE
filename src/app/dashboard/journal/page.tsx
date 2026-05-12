@@ -2,7 +2,7 @@
 
 import { useAccounting } from '@/lib/AccountingContext';
 import { formatDate } from '@/lib/formatDate';
-import { Plus, ArrowRight, FileText, Trash2, Pencil } from 'lucide-react';
+import { Plus, ArrowRight, FileText, Trash2, Pencil, Search } from 'lucide-react';
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { User } from '@/lib/types';
@@ -12,12 +12,25 @@ export default function JournalListPage() {
   const { journalEntries, accounts, deleteJournalEntry } = useAccounting();
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [search, setSearch] = useState("");
   const router = useRouter();
 
   useEffect(() => {
     const userStr = sessionStorage.getItem("aman_store_current_user");
     if (userStr) setCurrentUser(JSON.parse(userStr));
   }, []);
+
+  const filteredAndSortedEntries = journalEntries.filter(entry => {
+    if (!search) return true;
+    const lowerSearch = search.toLowerCase();
+    const matchNarration = entry.narration?.toLowerCase().includes(lowerSearch);
+    const matchAmount = entry.lines.some(l => l.amount.toString().includes(lowerSearch));
+    const matchAccount = entry.lines.some(l => {
+      const acc = accounts.find(a => a.id === l.accountId);
+      return acc?.name.toLowerCase().includes(lowerSearch);
+    });
+    return matchNarration || matchAmount || matchAccount;
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   return (
     <div className="p-4 sm:p-8 max-w-3xl mx-auto pb-24">
@@ -26,16 +39,39 @@ export default function JournalListPage() {
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Journal</h1>
           <p className="text-sm text-slate-500">Record and view all transactions</p>
         </div>
-        <Link 
-          href="/dashboard/journal/new"
-          className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-2xl shadow-sm font-semibold transition-colors text-sm"
-        >
-          <Plus size={18} /> New Entry
-        </Link>
+        <div className="flex items-center gap-3">
+          <div className="relative hidden sm:block">
+            <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
+            <input 
+              type="text" 
+              placeholder="Search journal..." 
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-sm transition-all w-64"
+            />
+          </div>
+          <Link 
+            href="/dashboard/journal/new"
+            className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white px-4 py-2.5 rounded-2xl shadow-sm font-semibold transition-colors text-sm"
+          >
+            <Plus size={18} /> New Entry
+          </Link>
+        </div>
+      </div>
+      
+      <div className="mb-6 sm:hidden relative">
+        <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
+        <input 
+          type="text" 
+          placeholder="Search journal..." 
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-sm transition-all"
+        />
       </div>
 
       <div className="space-y-4">
-        {journalEntries.length === 0 ? (
+        {filteredAndSortedEntries.length === 0 ? (
           <div className="p-8 bg-white border border-slate-200 border-dashed rounded-3xl text-center space-y-3">
             <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
               <FileText size={20} className="text-primary" />
@@ -50,7 +86,7 @@ export default function JournalListPage() {
             </Link>
           </div>
         ) : (
-          journalEntries.map((entry) => (
+          filteredAndSortedEntries.map((entry) => (
             <div
               key={entry.id}
               className={`bg-white rounded-3xl p-6 shadow-sm border transition-all group ${
@@ -75,8 +111,8 @@ export default function JournalListPage() {
                 {/* Right side: LF badge + delete controls */}
                 <div className="flex items-center gap-2 flex-shrink-0 ml-4">
                   {entry.lf && (
-                    <div className="text-xs font-mono bg-slate-100 px-2 py-1 rounded text-slate-500">
-                      LF: {entry.lf}
+                    <div className="text-xs font-mono bg-indigo-50 px-2 py-1 rounded text-indigo-500 font-bold">
+                      BN: {entry.lf}
                     </div>
                   )}
 
@@ -96,10 +132,10 @@ export default function JournalListPage() {
                         onClick={() => setConfirmDeleteId(null)}
                         className="text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-colors"
                       >
-                        No
                       </button>
                     </div>
                   ) : (
+                    currentUser?.role === 'Admin' && (
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => router.push(`/dashboard/journal/new?edit=${entry.id}`)}
@@ -116,6 +152,7 @@ export default function JournalListPage() {
                         <Trash2 size={15} />
                       </button>
                     </div>
+                    )
                   )}
                 </div>
               </div>

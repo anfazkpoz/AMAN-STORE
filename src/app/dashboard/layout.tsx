@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable react-hooks/exhaustive-deps */
 
-import { Home, BookOpen, Users, FileText, Library, LogOut, ShieldAlert, UserCog } from "lucide-react";
+import { Home, BookOpen, Users, FileText, Library, LogOut, ShieldAlert, UserCog, BarChart2 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -32,7 +32,7 @@ export default function DashboardLayout({
       return;
     }
 
-    if (user.role === "Staff" && pathname !== "/dashboard/debtors") {
+    if (user.role === "Staff" && !pathname.startsWith("/dashboard/debtors") && !pathname.startsWith("/dashboard/analytics")) {
       router.replace("/dashboard/debtors");
       return;
     }
@@ -60,8 +60,12 @@ export default function DashboardLayout({
   ];
 
   if (currentUser.role === "Staff") {
-    navItems = [{ name: "Debtors", href: "/dashboard/debtors", icon: Users }];
+    navItems = [
+      { name: "Debtors", href: "/dashboard/debtors", icon: Users },
+      { name: "Analytics", href: "/dashboard/analytics", icon: BarChart2 },
+    ];
   } else if (currentUser.role === "Admin") {
+    navItems.push({ name: "Analytics", href: "/dashboard/analytics", icon: BarChart2 });
     navItems.push({ name: "Staff", href: "/dashboard/staff", icon: UserCog });
   }
 

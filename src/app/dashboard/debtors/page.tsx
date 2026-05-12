@@ -26,6 +26,7 @@ export default function DebtorsPage() {
   const [prevQuickMode, setPrevQuickMode] = useState<'Debit' | 'Credit'>('Credit');
   const [qaStudentId, setQaStudentId] = useState("");
   const [qaAmount, setQaAmount] = useState("");
+  const [qaBookNumber, setQaBookNumber] = useState("");
   const [qaOppositeAccount, setQaOppositeAccount] = useState<'cash' | 'bank'>('cash');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -37,6 +38,7 @@ export default function DebtorsPage() {
 
   const [qaMsg, setQaMsg] = useState("");
   const [qaError, setQaError] = useState("");
+  const [isRegistrationEnabled, setIsRegistrationEnabled] = useState(true);
 
   // Notice: Push notification state removed for WhatsApp replace
   // Student Search in Modal
@@ -73,6 +75,14 @@ export default function DebtorsPage() {
     }
   }, [modalSearch, modalFilteredDebtors]);
 
+  // Auto-remember: load last used Book Number when Debit modal opens (Debit only)
+  useEffect(() => {
+    if (quickMode === 'Debit') {
+      const lastBN = localStorage.getItem('lastBookNumber');
+      if (lastBN) setQaBookNumber(lastBN);
+    }
+  }, [quickMode]);
+
   useEffect(() => {
     const userStr = sessionStorage.getItem("aman_store_current_user");
     if (!userStr) { router.replace('/'); return; }
@@ -80,6 +90,14 @@ export default function DebtorsPage() {
     if (user.role === 'Student') { router.replace('/profile'); return; }
     setCurrentUser(user);
   }, [router]);
+
+  // Fetch registration setting
+  useEffect(() => {
+    fetch('/api/settings/registration')
+      .then(r => r.json())
+      .then(d => setIsRegistrationEnabled(d.isRegistrationEnabled ?? true))
+      .catch(() => setIsRegistrationEnabled(true));
+  }, []);
 
   const filteredDebtors = useMemo(() => {
     return [...debtors]
@@ -98,6 +116,21 @@ export default function DebtorsPage() {
         return a.name.localeCompare(b.name);
       });
   }, [debtors, search, batchFilter]);
+
+  const handleAmountBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (!value) return;
+    try {
+      if (/^[0-9+\-*/. ()]+$/.test(value)) {
+        const calculated = Function('"use strict";return (' + value + ')')();
+        if (typeof calculated === 'number' && !isNaN(calculated)) {
+          setQaAmount(calculated.toFixed(2).toString());
+        }
+      }
+    } catch (error) {
+      console.error("Invalid math expression", error);
+    }
+  };
 
   const handleDeleteDebtor = async (e: React.MouseEvent, id: string, name: string) => {
     e.stopPropagation();
@@ -501,12 +534,18 @@ export default function DebtorsPage() {
                       await addJournalEntry({
                          date: new Date().toISOString().split("T")[0],
                          narration,
-                         lf: "",
+                         lf: quickMode === 'Debit' ? qaBookNumber.trim() : "",
                          lines: transactionLines,
                          createdBy: currentUser?.name || 'System'
                       });
                       
+                      // Auto-remember: save Book Number for next entry
+                      if (qaBookNumber.trim()) {
+                        localStorage.setItem('lastBookNumber', qaBookNumber.trim());
+                      }
+                      
                       setQaAmount("");
+                      setQaBookNumber("");
                       setQaStudentId("");
                       setQaError("");
                       setModalSearch("");
@@ -597,14 +636,31 @@ export default function DebtorsPage() {
                   </div>
                   )}
                   
+                  {/* Book Number — Debit only */}
+                  {quickMode === 'Debit' && (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                        Book Number
+                        {qaBookNumber && <span className="ml-1 text-indigo-400 font-bold normal-case">(remembered)</span>}
+                      </label>
+                      <input 
+                        type="text"
+                        value={qaBookNumber}
+                        onChange={e => setQaBookNumber(e.target.value)}
+                        placeholder="e.g. BK-01"
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 outline-none text-sm font-bold text-slate-800"
+                      />
+                    </div>
+                  )}
+
                   <div className="space-y-1.5 flex-1">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Amount (₹)</label>
                     <input 
-                      type="number" 
-                      min="1"
-                      step="0.01"
+                      type="text" 
+                      inputMode="decimal"
                       value={qaAmount}
                       onChange={e => setQaAmount(e.target.value)}
+                      onBlur={handleAmountBlur}
                       className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-400 outline-none text-xl font-black text-slate-800"
                       placeholder="0.00"
                     />
@@ -621,8 +677,22 @@ export default function DebtorsPage() {
                   >
                     {isSubmitting ? 'Saving...' : `Confirm ${quickMode}`}
                   </button>
-                  
-                  {quickMode === 'Credit' && (
+
+                  {/* Register shortcut under Debit — only when registration is enabled */}
+                  {quickMode === 'Debit' && isRegistrationEnabled && (
+                    <div className="pt-3 mt-1 text-center">
+                      <p className="text-xs text-slate-500 mb-1.5">Student not found?</p>
+                      <button
+                        type="button"
+                        onClick={() => { setQaError(""); setQaMsg(""); setPrevQuickMode('Debit'); setQuickMode('Register'); }}
+                        className="text-sm font-bold text-indigo-600 hover:text-indigo-800 underline decoration-indigo-200 underline-offset-4 transition-colors"
+                      >
+                        Register New Student
+                      </button>
+                    </div>
+                  )}
+
+                  {quickMode === 'Credit' && isRegistrationEnabled && (
                   <div className="pt-4 mt-6 border-t border-slate-100 text-center">
                     <p className="text-xs text-slate-500 mb-2">Student not found?</p>
                     <button 

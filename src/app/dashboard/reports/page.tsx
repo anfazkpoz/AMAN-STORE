@@ -12,6 +12,18 @@ export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<ReportTab>('trial_balance');
   const [batchFilter, setBatchFilter] = useState<string>('All Batches');
 
+  // Financial Year period: April 1 → today
+  const fyPeriod = (() => {
+    const now = new Date();
+    const dd = String(now.getDate()).padStart(2, '0');
+    const mm = String(now.getMonth() + 1).padStart(2, '0');
+    const yyyy = now.getFullYear();
+    const fyStartYear = now.getMonth() >= 3 ? yyyy : yyyy - 1; // April = index 3
+    const startDate = `01/04/${fyStartYear}`;
+    const endDate = `${dd}/${mm}/${yyyy}`;
+    return { startDate, endDate, label: `${startDate} TO ${endDate}` };
+  })();
+
   // Compute Trial Balance Array with Sundry Debtors & Creditors grouping
   const regularAccounts: any[] = [];
   let sundryDebtorsTotal = 0;
@@ -196,7 +208,7 @@ export default function ReportsPage() {
 
   <!-- 1. TRIAL BALANCE -->
   <div class="section">
-    <div class="section-title tb-title">1. Trial Balance &nbsp;&nbsp;<span style="font-weight:400;font-size:11px">As of ${today}</span></div>
+    <div class="section-title tb-title">1. Trial Balance &nbsp;&nbsp;<span style="font-weight:400;font-size:11px">For the Period: ${fyPeriod.label}</span></div>
     <table>
       <thead>
         <tr>
@@ -220,7 +232,7 @@ export default function ReportsPage() {
 
   <!-- 2. PROFIT & LOSS -->
   <div class="section">
-    <div class="section-title pnl-title">2. Profit &amp; Loss A/c &nbsp;&nbsp;<span style="font-weight:400;font-size:11px">For the period ending ${today}</span></div>
+    <div class="section-title pnl-title">2. Profit &amp; Loss A/c &nbsp;&nbsp;<span style="font-weight:400;font-size:11px">For the Period: ${fyPeriod.label}</span></div>
     <div class="two-col">
       <div>
         <div class="sub-title exp-title">Expenses (Dr)</div>
@@ -249,7 +261,7 @@ export default function ReportsPage() {
 
   <!-- 3. BALANCE SHEET -->
   <div class="section">
-    <div class="section-title bs-title">3. Balance Sheet &nbsp;&nbsp;<span style="font-weight:400;font-size:11px">As of ${today}</span></div>
+    <div class="section-title bs-title">3. Balance Sheet &nbsp;&nbsp;<span style="font-weight:400;font-size:11px">For the Period: ${fyPeriod.label}</span></div>
     <div class="two-col">
       <div>
         <div class="sub-title cap-title">Capital &amp; Equity</div>
@@ -339,7 +351,7 @@ export default function ReportsPage() {
             <div className="p-6 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center">
               <div>
                 <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wide">Trial Balance</h2>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">As of {getTodayFormatted()}</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">For the Period: {fyPeriod.label}</p>
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -394,7 +406,7 @@ export default function ReportsPage() {
           <div className="animate-in fade-in duration-300">
             <div className="p-6 bg-slate-50/50 border-b border-slate-100">
               <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wide">Profit &amp; Loss Statement</h2>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">For the period ending {getTodayFormatted()}</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">For the Period: {fyPeriod.label}</p>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 relative">
               <div className="hidden md:block absolute left-1/2 top-6 bottom-6 w-px bg-slate-100 -translate-x-1/2" />
@@ -453,7 +465,7 @@ export default function ReportsPage() {
           <div className="animate-in fade-in duration-300">
             <div className="p-6 bg-slate-50/50 border-b border-slate-100">
               <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wide">Balance Sheet</h2>
-              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">As of {getTodayFormatted()}</p>
+              <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">For the Period: {fyPeriod.label}</p>
             </div>
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8 lg:gap-12 relative">
               <div className="hidden md:block absolute left-1/2 top-6 bottom-6 w-px bg-slate-100 -translate-x-1/2" />

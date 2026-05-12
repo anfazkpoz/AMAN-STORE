@@ -31,6 +31,12 @@ export default function NewJournalEntryPage() {
     const userStr = sessionStorage.getItem("aman_store_current_user");
     if (userStr) setCurrentUser(JSON.parse(userStr));
 
+    // Auto-remember: load last used Book Number from localStorage
+    if (!editId) {
+      const lastBN = localStorage.getItem('lastBookNumber');
+      if (lastBN) setLf(lastBN);
+    }
+
     if (editId && journalEntries.length > 0) {
       const entry = journalEntries.find(e => e.id === editId);
       if (entry) {
@@ -55,6 +61,21 @@ export default function NewJournalEntryPage() {
 
   const handleLineChange = (id: string, field: keyof JournalLine, value: string | number) => {
     setLines(prev => prev.map(line => line.id === id ? { ...line, [field]: value } : line));
+  };
+
+  const handleAmountBlur = (e: React.FocusEvent<HTMLInputElement>, id: string) => {
+    const value = e.target.value;
+    if (!value) return;
+    try {
+      if (/^[0-9+\-*/. ()]+$/.test(value)) {
+        const calculated = Function('"use strict";return (' + value + ')')();
+        if (typeof calculated === 'number' && !isNaN(calculated)) {
+          handleLineChange(id, 'amount', Number(calculated.toFixed(2)));
+        }
+      }
+    } catch (error) {
+      console.error("Invalid math expression", error);
+    }
   };
 
   const addLine = () => {
@@ -100,6 +121,11 @@ export default function NewJournalEntryPage() {
       await updateJournalEntry({ id: editId, ...entryData } as any);
     } else {
       await addJournalEntry(entryData);
+    }
+
+    // Auto-remember: save Book Number for next entry
+    if (lf.trim()) {
+      localStorage.setItem('lastBookNumber', lf.trim());
     }
 
     router.push('/dashboard/journal');
@@ -167,12 +193,15 @@ export default function NewJournalEntryPage() {
             </div>
             
             <div className="space-y-1.5 focus-within:text-primary">
-              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 transition-colors">L.F (Ledger Folio)</label>
+              <label className="text-xs font-semibold uppercase tracking-wider text-slate-500 transition-colors">
+                Book Number
+                {lf && <span className="ml-2 text-[10px] font-bold text-indigo-400 normal-case tracking-normal">(remembered)</span>}
+              </label>
               <input 
                 type="text" 
                 value={lf}
                 onChange={(e) => setLf(e.target.value)}
-                placeholder="Optional"
+                placeholder="e.g. BK-01"
                 className="w-full px-4 py-2.5 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-primary focus:border-primary transition-all text-sm font-medium"
               />
             </div>
@@ -218,6 +247,12 @@ export default function NewJournalEntryPage() {
                       <option value="ADD_DEBTOR" className="text-primary font-semibold">+ Create New Debtor</option>
                     </optgroup>
                     
+                    <optgroup label="General Accounts">
+                      {accounts.filter(a => !debtors.some(d => d.accountId === a.id)).map(acc => (
+                        <option key={acc.id} value={acc.id}>{acc.name} ({acc.type})</option>
+                      ))}
+                    </optgroup>
+
                     {debtors.length > 0 && (
                       <optgroup label="Debtors (Customers)">
                         {debtors.map(d => (
@@ -225,12 +260,6 @@ export default function NewJournalEntryPage() {
                         ))}
                       </optgroup>
                     )}
-
-                    <optgroup label="General Accounts">
-                      {accounts.filter(a => !debtors.some(d => d.accountId === a.id)).map(acc => (
-                        <option key={acc.id} value={acc.id}>{acc.name} ({acc.type})</option>
-                      ))}
-                    </optgroup>
                   </select>
                   
                   <div className="flex bg-slate-200/60 p-1 rounded-xl">
@@ -254,12 +283,11 @@ export default function NewJournalEntryPage() {
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium">₹</span>
                   <input 
-                    type="number"
-                    min="0"
-                    step="0.01"
+                    type="text"
                     inputMode="decimal"
                     value={line.amount || ''}
                     onChange={(e) => handleLineChange(line.id, 'amount', e.target.value)}
+                    onBlur={(e) => handleAmountBlur(e, line.id)}
                     placeholder="Amount"
                     className={`w-full pl-8 pr-4 py-2.5 bg-white border rounded-xl outline-none focus:ring-2 focus:ring-primary transition-all text-sm font-medium ${
                       line.type === 'Debit' ? 'border-blue-200 text-blue-700' : 'border-emerald-200 text-emerald-700'

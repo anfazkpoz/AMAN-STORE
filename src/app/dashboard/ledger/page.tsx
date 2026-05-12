@@ -2,14 +2,21 @@
 
 import { useAccounting } from '@/lib/AccountingContext';
 import { formatDate } from '@/lib/formatDate';
-import { Library, ArrowLeft, Trash2 } from 'lucide-react';
-import React, { useState } from 'react';
+import { Library, ArrowLeft, Trash2, Search } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
 
 export default function LedgerPage() {
   const { accounts, journalEntries, deleteJournalEntry, deleteAccount } = useAccounting();
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [confirmDeleteAccountId, setConfirmDeleteAccountId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  useEffect(() => {
+    const userStr = sessionStorage.getItem("aman_store_current_user");
+    if (userStr) setCurrentUser(JSON.parse(userStr));
+  }, []);
 
   // System default accounts that should NOT be deletable
   const PROTECTED_IDS = ['1', '2', '3', '4', '5'];
@@ -67,6 +74,14 @@ export default function LedgerPage() {
     });
   }, [selectedAccountId, journalEntries, accounts, selectedAccount?.balanceType]);
 
+  const filteredAccounts = React.useMemo(() => {
+    return accounts.filter(a => {
+      if (!search) return true;
+      const lowerSearch = search.toLowerCase();
+      return a.name.toLowerCase().includes(lowerSearch) || a.type.toLowerCase().includes(lowerSearch);
+    });
+  }, [accounts, search]);
+
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto pb-24">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pt-4">
@@ -89,25 +104,39 @@ export default function LedgerPage() {
           </p>
         </div>
         
-        {selectedAccountId && (
-          <div className="flex-1 max-w-sm animate-in fade-in duration-300">
-            <select 
-              value={selectedAccountId}
-              onChange={(e) => setSelectedAccountId(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-primary text-sm font-semibold appearance-none shadow-sm cursor-pointer"
-            >
-              <option value="" disabled>Switch Ledger Account</option>
-              {accounts.map(acc => (
-                <option key={acc.id} value={acc.id}>{acc.name} ({acc.type})</option>
-              ))}
-            </select>
-          </div>
-        )}
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          {!selectedAccountId && (
+            <div className="relative w-full sm:w-64 animate-in fade-in duration-300">
+              <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
+              <input 
+                type="text" 
+                placeholder="Search accounts..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2.5 bg-white border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-primary text-sm shadow-sm transition-all"
+              />
+            </div>
+          )}
+          {selectedAccountId && (
+            <div className="w-full sm:w-auto max-w-sm animate-in fade-in duration-300">
+              <select 
+                value={selectedAccountId}
+                onChange={(e) => setSelectedAccountId(e.target.value)}
+                className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-primary text-sm font-semibold appearance-none shadow-sm cursor-pointer"
+              >
+                <option value="" disabled>Switch Ledger Account</option>
+                {accounts.map(acc => (
+                  <option key={acc.id} value={acc.id}>{acc.name} ({acc.type})</option>
+                ))}
+              </select>
+            </div>
+          )}
+        </div>
       </div>
 
       {!selectedAccountId ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in duration-300">
-          {accounts.map(acc => {
+          {filteredAccounts.map(acc => {
             const isAbnormal = acc.balance < 0;
             const sign = isAbnormal 
               ? (acc.balanceType === 'Debit' ? 'Cr' : 'Dr')
@@ -153,7 +182,7 @@ export default function LedgerPage() {
                 </button>
 
                 {/* Delete control — top-right corner */}
-                {!isProtected && (
+                {!isProtected && currentUser?.role === 'Admin' && (
                   <div className="absolute top-3 right-3">
                     {isConfirming ? (
                       <div className="flex items-center gap-1">
@@ -229,7 +258,7 @@ export default function LedgerPage() {
                   <th className="px-6 py-4 font-semibold text-right">Debit (Dr)</th>
                   <th className="px-6 py-4 font-semibold text-right">Credit (Cr)</th>
                   <th className="px-6 py-4 font-semibold text-right">Balance</th>
-                  <th className="px-6 py-4 font-semibold text-center w-10"></th>
+                  {currentUser?.role === 'Admin' && <th className="px-6 py-4 font-semibold text-center w-10"></th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-50">
@@ -258,6 +287,7 @@ export default function LedgerPage() {
                         </span>
                       </td>
                       {/* Delete column */}
+                      {currentUser?.role === 'Admin' && (
                       <td className="px-4 py-4 text-center">
                         {confirmDeleteId === t.entryId ? (
                           <div className="flex items-center gap-1 justify-center">
@@ -287,6 +317,7 @@ export default function LedgerPage() {
                           </button>
                         )}
                       </td>
+                      )}
                     </tr>
                   ))
                 )}

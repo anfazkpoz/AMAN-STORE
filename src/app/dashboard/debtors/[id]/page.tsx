@@ -40,7 +40,7 @@ export default function StudentLedgerPage() {
 
   const studentTransactions = journalEntries.filter(entry => 
     entry.lines.some(line => line.accountId === studentAccount.id)
-  );
+  ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const currentBalance = studentAccount.balance;
 
@@ -149,7 +149,8 @@ export default function StudentLedgerPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Transaction Entry Form */}
+        {/* Transaction Entry Form — Admin only */}
+        {currentUser?.role === 'Admin' && (
         <div className="lg:col-span-1 border border-slate-200 bg-white rounded-3xl p-6 shadow-sm self-start">
           <h2 className="text-lg font-bold text-slate-800 mb-4 tracking-tight border-b border-slate-100 pb-4">Post Transaction</h2>
           
@@ -225,9 +226,10 @@ export default function StudentLedgerPage() {
             </button>
           </form>
         </div>
+        )}
 
         {/* Ledger Statement View */}
-        <div className="lg:col-span-2 bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className={`${currentUser?.role === 'Admin' ? 'lg:col-span-2' : 'lg:col-span-3'} bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden`}>
           <div className="p-6 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-indigo-50 rounded-xl">
