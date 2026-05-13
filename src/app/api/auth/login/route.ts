@@ -2,6 +2,7 @@ import dbConnect from "@/lib/mongodb";
 import User from "@/models/User";
 import Account from "@/models/Account";
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 
 export const dynamic = "force-dynamic";
 
@@ -47,8 +48,13 @@ export async function POST(req: Request) {
       console.log("Seeded default accounts (1-5)");
     }
 
-    const user = await User.findOne({ phone, password, role });
+    const user = await User.findOne({ phone, role });
     if (!user) {
+      return NextResponse.json({ error: "Invalid User ID or Password." }, { status: 401 });
+    }
+
+    const isMatch = (user.password === password) || (await bcrypt.compare(password, user.password));
+    if (!isMatch) {
       return NextResponse.json({ error: "Invalid User ID or Password." }, { status: 401 });
     }
 

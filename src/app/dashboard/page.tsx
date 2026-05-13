@@ -406,7 +406,7 @@ export default function DashboardPage() {
                     <td className="px-5 py-3 font-mono text-slate-500 text-xs w-1/4 text-center">{student.phone}</td>
                     <td className="px-5 py-3 font-mono text-xs font-bold text-red-500 tracking-wider text-right w-1/4">
                       <div className="flex items-center justify-end gap-2 group/pass">
-                        <span>{showPasswords[student.id] ? student.password : "••••••••"}</span>
+                        <span>{showPasswords[student.id] ? (student.visiblePassword || student.password) : "••••••••"}</span>
                         <button 
                           onClick={() => togglePassword(student.id)}
                           className="p-1 text-slate-300 hover:text-slate-500 hover:bg-slate-100 rounded-md transition-all"

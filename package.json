@@ -12,7 +12,9 @@
   "dependencies": {
     "@clerk/nextjs": "^7.0.8",
     "@supabase/supabase-js": "^2.101.1",
+    "@types/bcryptjs": "^2.4.6",
     "@types/qrcode.react": "^1.0.5",
+    "bcryptjs": "^3.0.3",
     "clsx": "^2.1.1",
     "lucide-react": "^1.7.0",
     "mongoose": "^9.4.1",

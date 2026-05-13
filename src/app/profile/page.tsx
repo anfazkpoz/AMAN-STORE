@@ -3,15 +3,19 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { User, Phone, LogOut, CheckCircle2, History, Banknote, Download, X, Smartphone, QrCode, ExternalLink } from "lucide-react";
+import { User, Phone, LogOut, CheckCircle2, History, Banknote, Download, X, Smartphone, QrCode, ExternalLink, MessageCircle, Settings, Save } from "lucide-react";
 import { useAccounting } from "@/lib/AccountingContext";
 import { User as UserType } from "@/lib/types";
 import { formatDate } from "@/lib/formatDate";
-import { getSession, clearSession } from "@/lib/auth";
+import { getSession, clearSession, saveSession } from "@/lib/auth";
 import { QRCodeSVG } from "qrcode.react";
+import ProfileSettingsModal from "@/components/ProfileSettingsModal";
 
 // ── UPI config ─────────────────────────────────────────────────────────────────
 const UPI_ID = "muhammedanfaz123_1@oksbi";
+
+// ── Admin Config ───────────────────────────────────────────────────────────────
+const ADMIN_WHATSAPP = "918593971496";
 
 // Type for the browser's beforeinstallprompt event
 interface BeforeInstallPromptEvent extends Event {
@@ -35,6 +39,9 @@ export default function ProfilePage() {
   const [isMobile, setIsMobile] = useState(false);
   const [showWarning, setShowWarning] = useState(false);
   const [pendingPaymentUrl, setPendingPaymentUrl] = useState("");
+
+  // Settings Modal State
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   const { debtors, accounts, journalEntries } = useAccounting();
 
@@ -79,6 +86,11 @@ export default function ProfilePage() {
   const handleLogout = () => {
     clearSession();
     router.push("/");
+  };
+
+  const handleOpenSettings = () => {
+    if (!user) return;
+    setShowSettingsModal(true);
   };
 
   const handleInstall = async () => {
@@ -184,8 +196,16 @@ export default function ProfilePage() {
               </span>
             )}
             <button
+              onClick={handleOpenSettings}
+              className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-full transition-colors flex items-center gap-2"
+              title="Settings"
+            >
+              <Settings size={18} />
+            </button>
+            <button
               onClick={handleLogout}
               className="p-2 text-slate-500 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors flex items-center gap-2"
+              title="Sign Out"
             >
               <LogOut size={18} />
               <span className="text-xs font-bold hidden sm:inline">Sign Out</span>
@@ -328,6 +348,22 @@ export default function ProfilePage() {
         </div>
 
       </div>
+
+      {/* ── WhatsApp Support Floating Button ────────────────────────────── */}
+      <a 
+        href={`https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(`Hi Admin, I am ${user.name} from batch ${user.batch}. I have a query regarding my account balance.`)}`}
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 z-50 bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:bg-[#1ebe5d] transition-all hover:scale-110 active:scale-95 flex items-center justify-center animate-bounce shadow-[#25D366]/40"
+        title="WhatsApp Support"
+      >
+        <MessageCircle size={28} />
+      </a>
+
+      {/* ── Profile Settings Modal ──────────────────────────────────────── */}
+      {showSettingsModal && (
+        <ProfileSettingsModal user={user} onClose={() => setShowSettingsModal(false)} />
+      )}
 
       {showWarning && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[300] flex items-center justify-center p-4 animate-in fade-in">
