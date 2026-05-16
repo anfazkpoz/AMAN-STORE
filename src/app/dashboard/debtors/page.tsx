@@ -545,7 +545,6 @@ export default function DebtorsPage() {
                       }
                       
                       setQaAmount("");
-                      setQaBookNumber("");
                       setQaStudentId("");
                       setQaError("");
                       setModalSearch("");
