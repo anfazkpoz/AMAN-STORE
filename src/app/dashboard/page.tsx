@@ -232,16 +232,16 @@ export default function DashboardPage() {
     <div className="p-4 sm:p-6 max-w-5xl mx-auto pb-24">
 
       {/* Page Title */}
-      <div className="pt-4 mb-6">
+      <div className="pt-4 mb-6 scroll-reveal">
         <h1 className="text-xl font-bold text-slate-800 tracking-tight text-left">Overview</h1>
         <p className="text-sm text-slate-500 mt-0.5 text-left">Welcome back — here's your store summary.</p>
       </div>
 
       {/* Key Metrics Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8 scroll-reveal scroll-stagger">
         
         {/* Total Debtors */}
-        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500 transition-all hover:shadow-xl hover:-translate-y-1">
+        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 transition-all hover:shadow-xl hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Debtors</p>
             <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-rose-500 shrink-0">
@@ -252,7 +252,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Total Creditors */}
-        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500 transition-all delay-75 hover:shadow-xl hover:-translate-y-1">
+        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 transition-all hover:shadow-xl hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Total Creditors</p>
             <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-emerald-500 shrink-0">
@@ -263,7 +263,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Today's Sales */}
-        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500 transition-all delay-150 hover:shadow-xl hover:-translate-y-1">
+        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 transition-all hover:shadow-xl hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Today's Sales</p>
             <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-indigo-500 shrink-0">
@@ -274,7 +274,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Today's Collection */}
-        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-2 duration-500 transition-all delay-200 hover:shadow-xl hover:-translate-y-1">
+        <div className="bg-white shadow-sm border border-slate-200 rounded-2xl p-5 flex flex-col gap-3 transition-all hover:shadow-xl hover:-translate-y-1">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold uppercase tracking-wider text-slate-500">Today's Collection</p>
             <div className="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-sky-500 shrink-0">
@@ -287,7 +287,7 @@ export default function DashboardPage() {
       </div>
       
       {/* Balances Quick Look */}
-      <div className="flex gap-6 mb-8 px-2 animate-in fade-in duration-700">
+      <div className="flex gap-6 mb-8 px-2 scroll-reveal">
         <div className="flex items-center gap-2">
             <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
             <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Cash <span className="text-slate-800">₹{cashInHand.toLocaleString()}</span></span>
@@ -299,9 +299,9 @@ export default function DashboardPage() {
       </div>
 
       {/* Modules */}
-      <div className="mb-2">
+      <div className="mb-2 scroll-reveal">
         <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3 px-1 text-left">Modules</h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 scroll-stagger">
           {modules.map(mod => (
             <Link
               key={mod.title}
@@ -327,11 +327,13 @@ export default function DashboardPage() {
       <div className="my-8 border-t border-slate-100" />
 
       {/* Weekly Status Chart (Sun–Sat) */}
-      <WeeklyStatusChart data={weeklyStatusData} />
+      <div className="scroll-reveal">
+        <WeeklyStatusChart data={weeklyStatusData} />
+      </div>
       <div className="my-8 border-t border-slate-100" />
 
       {/* Registration Toggle */}
-      <div className="mb-8 bg-white border border-slate-100 rounded-2xl shadow-sm p-5 flex items-center justify-between gap-4 animate-in fade-in duration-500">
+      <div className="mb-8 bg-white border border-slate-100 rounded-2xl shadow-sm p-5 flex items-center justify-between gap-4 scroll-reveal">
         <div className="flex flex-col gap-0.5">
           <p className="text-sm font-bold text-slate-800">Student Registrations</p>
           <p className="text-xs text-slate-500">
@@ -358,7 +360,7 @@ export default function DashboardPage() {
       <div className="my-8 border-t border-slate-100" />
 
       {/* Student Credentials */}
-      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between px-1 gap-4">
+      <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between px-1 gap-4 scroll-reveal">
         <div className="flex items-center gap-2">
           <KeyRound size={16} className="text-indigo-500" />
           <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400">Student Credentials</h2>
@@ -376,7 +378,7 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden text-left">
+      <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden text-left scroll-reveal">
         <div className="overflow-x-auto text-left">
           <table className="w-full text-sm text-left">
             <thead className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-400 uppercase tracking-wider">

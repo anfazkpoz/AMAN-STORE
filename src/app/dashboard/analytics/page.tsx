@@ -102,7 +102,7 @@ export default function AnalyticsPage() {
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto pb-24">
       {/* Page Header */}
-      <div className="pt-4 mb-6">
+      <div className="pt-4 mb-6 scroll-reveal">
         <h1 className="text-xl font-bold text-slate-800 tracking-tight flex items-center gap-2">
           <BarChart2 size={20} className="text-indigo-600" />
           Analytics
@@ -113,7 +113,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8 scroll-reveal scroll-stagger">
         <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
           <div className="flex items-center gap-2 mb-2">
             <div className="w-8 h-8 bg-indigo-50 rounded-xl flex items-center justify-center">
@@ -165,12 +165,12 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Weekly Status Chart */}
-      <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-100 mb-6">
+      <div className="bg-white p-4 sm:p-6 rounded-2xl shadow-sm border border-slate-100 mb-6 scroll-reveal">
         <WeeklyStatusChart data={weeklyData} />
       </div>
 
       {/* Last 4 Weeks Bar Summary */}
-      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100">
+      <div className="bg-white p-5 rounded-2xl shadow-sm border border-slate-100 scroll-reveal">
         <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-4 px-1">
           Last 4 Weeks
         </h2>

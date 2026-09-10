@@ -58,17 +58,22 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid User ID or Password." }, { status: 401 });
     }
 
-    return NextResponse.json({ 
-      user: {
-        id: String(user._id),
-        name: user.name,
-        phone: user.phone,
-        role: user.role,
-        batch: user.batch,
-        // Ensure debtorId is returned as a plain string (not an ObjectId object)
-        debtorId: user.debtorId ? String(user.debtorId) : undefined
-      }
+    const sessionData = {
+      id: String(user._id),
+      name: user.name,
+      phone: user.phone,
+      role: user.role,
+      batch: user.batch,
+      debtorId: user.debtorId ? String(user.debtorId) : undefined,
+    };
+
+    const res = NextResponse.json({ user: sessionData });
+    res.cookies.set("aman_store_session", encodeURIComponent(JSON.stringify(sessionData)), {
+      path: "/",
+      maxAge: 30 * 24 * 60 * 60,
+      sameSite: "lax",
     });
+    return res;
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }

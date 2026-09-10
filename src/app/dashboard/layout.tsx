@@ -21,14 +21,14 @@ export default function DashboardLayout({
   useEffect(() => {
     const user = getSession();
     if (!user) {
-      router.push("/");
+      router.replace("/login");
       return;
     }
     
     setCurrentUser(user);
 
     if (user.role === "Student") {
-      router.push("/profile");
+      router.replace("/profile");
       return;
     }
 
@@ -70,8 +70,8 @@ export default function DashboardLayout({
   }
 
   const handleLogout = () => {
-    clearSession(); // clears both localStorage and sessionStorage
-    router.push("/");
+    clearSession();
+    router.replace("/login");
   };
 
   return (

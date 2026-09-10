@@ -35,6 +35,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  scroll-behavior: smooth;
+}
+
 @keyframes shimmer {
   0%   { transform: translateX(-100%); }
   100% { transform: translateX(200%); }
@@ -44,3 +48,116 @@ body {
   0% { transform: translateX(-50px); opacity: 0; }
   100% { transform: translateX(0); opacity: 1; }
 }
+
+/* ==========================================================================
+   Universal Scroll Animations
+   ========================================================================== */
+
+/* Standard vertical fade-and-slide up on scroll */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.scroll-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Subtle scale-up on scroll */
+.scroll-reveal-scale {
+  opacity: 0;
+  transform: scale(0.96) translateY(18px);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.scroll-reveal-scale.is-visible {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+}
+
+/* Slide in from left */
+.scroll-reveal-left {
+  opacity: 0;
+  transform: translateX(-28px);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.scroll-reveal-left.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Slide in from right */
+.scroll-reveal-right {
+  opacity: 0;
+  transform: translateX(28px);
+  transition: opacity 0.65s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.65s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.scroll-reveal-right.is-visible {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+/* Stagger child items when parent section scrolls into view */
+.scroll-stagger > * {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 0.55s cubic-bezier(0.16, 1, 0.3, 1),
+              transform 0.55s cubic-bezier(0.16, 1, 0.3, 1);
+  will-change: opacity, transform;
+}
+
+.scroll-stagger.is-visible > * {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.scroll-stagger.is-visible > *:nth-child(1) { transition-delay: 0.04s; }
+.scroll-stagger.is-visible > *:nth-child(2) { transition-delay: 0.08s; }
+.scroll-stagger.is-visible > *:nth-child(3) { transition-delay: 0.12s; }
+.scroll-stagger.is-visible > *:nth-child(4) { transition-delay: 0.16s; }
+.scroll-stagger.is-visible > *:nth-child(5) { transition-delay: 0.20s; }
+.scroll-stagger.is-visible > *:nth-child(6) { transition-delay: 0.24s; }
+.scroll-stagger.is-visible > *:nth-child(7) { transition-delay: 0.28s; }
+.scroll-stagger.is-visible > *:nth-child(8) { transition-delay: 0.32s; }
+.scroll-stagger.is-visible > *:nth-child(9) { transition-delay: 0.36s; }
+.scroll-stagger.is-visible > *:nth-child(10) { transition-delay: 0.40s; }
+.scroll-stagger.is-visible > *:nth-child(n+11) { transition-delay: 0.44s; }
+
+/* Safe overrides for print */
+@media print {
+  .scroll-reveal,
+  .scroll-reveal-scale,
+  .scroll-reveal-left,
+  .scroll-reveal-right,
+  .scroll-stagger > * {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+
+/* Accessibility: respect user preference for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .scroll-reveal,
+  .scroll-reveal-scale,
+  .scroll-reveal-left,
+  .scroll-reveal-right,
+  .scroll-stagger > * {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}
+

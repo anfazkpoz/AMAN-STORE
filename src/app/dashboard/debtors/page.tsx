@@ -1,9 +1,10 @@
 "use client";
-import { Users, Search, Filter, Plus, ArrowDownCircle, ArrowUpCircle, X, User as UserIcon, Phone, KeyRound, CheckCircle2, Trash2, Eye, EyeOff, Pencil, MessageCircle, MoreVertical, TrendingUp, Wallet } from 'lucide-react';
+import { Users, Search, Filter, Plus, ArrowDownCircle, ArrowUpCircle, X, User as UserIcon, Phone, KeyRound, CheckCircle2, Trash2, Eye, EyeOff, Pencil, MessageCircle, MoreVertical, TrendingUp, Wallet, UserPlus } from 'lucide-react';
 import { useAccounting } from '@/lib/AccountingContext';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Batch, User, Debtor } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { getSession } from '@/lib/auth';
 
 const BATCHES: Batch[] = ['JD1', 'JD2', 'JD3', 'HS1', 'HS2', 'BS1', 'BS2', 'BS3', 'BS4', 'BS5'];
 
@@ -23,7 +24,7 @@ export default function DebtorsPage() {
 
   // Quick Actions State
   const [quickMode, setQuickMode] = useState<'None' | 'Debit' | 'Credit' | 'Register'>('None');
-  const [prevQuickMode, setPrevQuickMode] = useState<'Debit' | 'Credit'>('Credit');
+  const [prevQuickMode, setPrevQuickMode] = useState<'Debit' | 'Credit' | 'None'>('Credit');
   const [qaStudentId, setQaStudentId] = useState("");
   const [qaAmount, setQaAmount] = useState("");
   const [qaBookNumber, setQaBookNumber] = useState("");
@@ -84,11 +85,11 @@ export default function DebtorsPage() {
   }, [quickMode]);
 
   useEffect(() => {
-    const userStr = sessionStorage.getItem("aman_store_current_user");
-    if (!userStr) { router.replace('/'); return; }
-    const user: User = JSON.parse(userStr);
-    if (user.role === 'Student') { router.replace('/profile'); return; }
-    setCurrentUser(user);
+    const user = getSession();
+    if (user) {
+      if (user.role === 'Student') { router.replace('/profile'); return; }
+      setCurrentUser(user);
+    }
   }, [router]);
 
   // Fetch registration setting
@@ -163,7 +164,20 @@ export default function DebtorsPage() {
 
   const handleWhatsAppReminder = (e: React.MouseEvent, debtor: Debtor, balance: number) => {
     e.stopPropagation();
-    const msg = encodeURIComponent(`Hi ${debtor.name}, this is a gentle reminder from AMAN STORE. Your current pending balance is ₹${Math.abs(balance).toLocaleString()}. Please clear it at the earliest.`);
+    
+    // 1. Get current website base URL dynamically
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+
+    // 2. Construct unique student portal URL using student's ID
+    const studentId = debtor.id || (debtor as any)._id;
+    const portalLink = `${baseUrl}/student/${studentId}`;
+
+    // 3. Append to message template
+    const originalMessage = `Hi ${debtor.name}, this is a gentle reminder from AMAN STORE. Your current pending balance is ₹${Math.abs(balance).toLocaleString()}. Please clear it at the earliest.`;
+    const finalMessage = `${originalMessage}\n\nView your full account details here: ${portalLink}`;
+
+    // 4. Properly URL-encode final message
+    const msg = encodeURIComponent(finalMessage);
     const number = debtor.mobileNumber?.replace(/[^0-9]/g, '') || '';
     const waNumber = number.length === 10 ? `91${number}` : number;
     
@@ -195,16 +209,23 @@ export default function DebtorsPage() {
 
     setIsSubmitting(true);
     try {
-      // Direct call to users API which handles account and debtor creation for us
-      const res = await fetch('/api/users', {
+      const session = getSession();
+      const userRole = session?.role || currentUser?.role || 'Admin';
+      // Call students API with admin/staff auth headers to bypass global registration toggle
+      const res = await fetch('/api/students', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-user-role': userRole,
+          ...(session ? { 'Authorization': `Bearer ${encodeURIComponent(JSON.stringify(session))}` } : {})
+        },
         body: JSON.stringify({
           name: regName.trim(),
-          phone: finalPhone || `student_${Date.now()}`, // Fallback if phone is empty
+          phone: finalPhone || `student_${Date.now()}`,
           password: regPassword.trim(),
           role: 'Student',
-          batch: regBatch as Batch
+          batch: regBatch as Batch,
+          creatorRole: userRole
         })
       });
 
@@ -218,7 +239,7 @@ export default function DebtorsPage() {
       setRegName(''); setRegPhone(''); setRegPassword(''); setRegBatch('');
       setQaError('');
       setQaMsg(`✓ ${regName.trim()} registered successfully!`);
-      setTimeout(() => { setQaMsg(''); setQuickMode(prevQuickMode); }, 2000);
+      setTimeout(() => { setQaMsg(''); setQuickMode(prevQuickMode === 'None' ? 'None' : prevQuickMode); }, 2000);
     } catch (err: any) {
       setQaError(err.message || "An error occurred.");
     } finally {
@@ -236,6 +257,14 @@ export default function DebtorsPage() {
             <h1 className="text-2xl font-bold tracking-tight text-slate-800">Student Debtors</h1>
             <p className="text-sm text-slate-500 font-medium mt-1">Manage accounts and credit balances</p>
           </div>
+          <button
+            type="button"
+            onClick={() => { setQaError(""); setQaMsg(""); setPrevQuickMode('None'); setQuickMode('Register'); }}
+            className="flex items-center gap-2 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm shadow-md shadow-indigo-500/20 transition-all active:scale-[0.98]"
+          >
+            <UserPlus size={16} />
+            <span>Add Student</span>
+          </button>
         </div>
 
         <div className="flex flex-col sm:flex-row gap-3">
@@ -286,8 +315,7 @@ export default function DebtorsPage() {
                 <div 
                   key={debtor.id} 
                   onClick={() => router.push(`/dashboard/debtors/${debtor.id}`)}
-                  className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 relative p-4 sm:px-6 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between group gap-3 sm:gap-0 animate-in fade-in slide-in-from-bottom-4 fill-mode-both border border-transparent hover:border-indigo-50 hover:-translate-y-0.5 ${openMenuId === debtor.id ? 'z-50' : 'z-0'}`}
-                  style={{ animationDelay: `${index * 50}ms` }}
+                  className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 relative p-4 sm:px-6 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between group gap-3 sm:gap-0 border border-transparent hover:border-indigo-50 hover:-translate-y-0.5 scroll-reveal ${openMenuId === debtor.id ? 'z-50' : 'z-0'}`}
                 >
                   <div className="flex items-start sm:items-center justify-between w-full">
                     <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 pr-3">
@@ -600,6 +628,27 @@ export default function DebtorsPage() {
                         modalFilteredDebtors.map(d => <option key={d.id} value={d.id}>{d.name} ({d.batch || '?'})</option>)
                       )}
                     </select>
+                    {/* Current Balance Display */}
+                    {qaStudentId && (() => {
+                      const selectedStudent = debtors.find(d => d.id === qaStudentId);
+                      const selectedAcc = selectedStudent ? accounts.find(a => a.id === selectedStudent.accountId) : null;
+                      const bal = selectedAcc?.balance ?? selectedStudent?.currentBalance ?? 0;
+                      if (!selectedStudent) return null;
+                      return (
+                        <div className={`flex items-center justify-between mt-2 px-3 py-2 rounded-lg border text-xs font-bold ${
+                          bal > 0 
+                            ? 'bg-red-50 border-red-100 text-red-600' 
+                            : bal < 0 
+                              ? 'bg-emerald-50 border-emerald-100 text-emerald-600' 
+                              : 'bg-slate-50 border-slate-100 text-slate-500'
+                        }`}>
+                          <span>Current Balance</span>
+                          <span className="font-mono">
+                            {bal > 0 ? `₹${bal.toLocaleString()} Dr` : bal < 0 ? `₹${Math.abs(bal).toLocaleString()} Cr` : '₹0 (Clear)'}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   {/* Cash / Bank selector - Only for Credit */}
@@ -677,8 +726,8 @@ export default function DebtorsPage() {
                     {isSubmitting ? 'Saving...' : `Confirm ${quickMode}`}
                   </button>
 
-                  {/* Register shortcut under Debit — only when registration is enabled */}
-                  {quickMode === 'Debit' && isRegistrationEnabled && (
+                  {/* Register shortcut under Debit — always accessible for Admin/Staff */}
+                  {quickMode === 'Debit' && (
                     <div className="pt-3 mt-1 text-center">
                       <p className="text-xs text-slate-500 mb-1.5">Student not found?</p>
                       <button
@@ -691,7 +740,8 @@ export default function DebtorsPage() {
                     </div>
                   )}
 
-                  {quickMode === 'Credit' && isRegistrationEnabled && (
+                  {/* Register shortcut under Credit — always accessible for Admin/Staff */}
+                  {quickMode === 'Credit' && (
                   <div className="pt-4 mt-6 border-t border-slate-100 text-center">
                     <p className="text-xs text-slate-500 mb-2">Student not found?</p>
                     <button 

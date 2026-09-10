@@ -105,7 +105,7 @@ export default function StaffManagementPage() {
     <div className="p-4 sm:p-6 max-w-5xl mx-auto pb-24 text-left">
 
       {/* Page Header */}
-      <div className="pt-4 mb-6">
+      <div className="pt-4 mb-6 scroll-reveal">
         <h1 className="text-xl font-bold text-slate-800 tracking-tight">Staff Management</h1>
         <p className="text-sm text-slate-500 mt-0.5">Add and manage staff portal access</p>
       </div>
@@ -113,7 +113,7 @@ export default function StaffManagementPage() {
       <div className="grid grid-cols-1 md:grid-cols-5 gap-5 text-left">
 
         {/* ── Add Staff Form ── */}
-        <div className="md:col-span-2 bg-white border border-slate-100 rounded-2xl shadow-sm p-5 self-start">
+        <div className="md:col-span-2 bg-white border border-slate-100 rounded-2xl shadow-sm p-5 self-start scroll-reveal">
           <div className="flex items-center gap-2.5 mb-5 pb-4 border-b border-slate-100">
             <div className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center shrink-0">
               <UserCog size={16} />
@@ -202,7 +202,7 @@ export default function StaffManagementPage() {
         </div>
 
         {/* ── Staff List ── */}
-        <div className="md:col-span-3 bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+        <div className="md:col-span-3 bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden scroll-reveal">
           <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
             <h2 className="font-bold text-slate-800 text-sm">Active Staff Accounts</h2>
             <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-lg">

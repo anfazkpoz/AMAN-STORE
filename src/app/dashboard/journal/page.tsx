@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { User } from '@/lib/types';
 import { useRouter } from 'next/navigation';
+import { getSession } from '@/lib/auth';
 
 export default function JournalListPage() {
   const { journalEntries, accounts, deleteJournalEntry } = useAccounting();
@@ -16,8 +17,8 @@ export default function JournalListPage() {
   const router = useRouter();
 
   useEffect(() => {
-    const userStr = sessionStorage.getItem("aman_store_current_user");
-    if (userStr) setCurrentUser(JSON.parse(userStr));
+    const u = getSession();
+    if (u) setCurrentUser(u);
   }, []);
 
   const filteredAndSortedEntries = journalEntries.filter(entry => {
@@ -34,7 +35,7 @@ export default function JournalListPage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-3xl mx-auto pb-24">
-      <div className="flex items-center justify-between mb-8 pt-4">
+      <div className="flex items-center justify-between mb-8 pt-4 scroll-reveal">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">Journal</h1>
           <p className="text-sm text-slate-500">Record and view all transactions</p>
@@ -59,7 +60,7 @@ export default function JournalListPage() {
         </div>
       </div>
       
-      <div className="mb-6 sm:hidden relative">
+      <div className="mb-6 sm:hidden relative scroll-reveal">
         <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
         <input 
           type="text" 
@@ -72,7 +73,7 @@ export default function JournalListPage() {
 
       <div className="space-y-4">
         {filteredAndSortedEntries.length === 0 ? (
-          <div className="p-8 bg-white border border-slate-200 border-dashed rounded-3xl text-center space-y-3">
+          <div className="p-8 bg-white border border-slate-200 border-dashed rounded-3xl text-center space-y-3 scroll-reveal">
             <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-2">
               <FileText size={20} className="text-primary" />
             </div>
@@ -89,7 +90,7 @@ export default function JournalListPage() {
           filteredAndSortedEntries.map((entry) => (
             <div
               key={entry.id}
-              className={`bg-white rounded-3xl p-6 shadow-sm border transition-all group ${
+              className={`bg-white rounded-3xl p-6 shadow-sm border transition-all group scroll-reveal ${
                 confirmDeleteId === entry.id
                   ? 'border-red-300 shadow-red-100 shadow-md bg-red-50/40'
                   : 'border-slate-200 hover:shadow-md'

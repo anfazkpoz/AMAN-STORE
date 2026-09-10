@@ -8,6 +8,7 @@ export interface User {
   phone: string;      // login ID (for staff: auto-generated; for student/admin: actual phone)
   mobile?: string;    // actual mobile number (stored for staff SMS purposes)
   password?: string;
+  visiblePassword?: string;
   role: Role;
   batch?: Batch; 
   debtorId?: string; 

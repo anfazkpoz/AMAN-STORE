@@ -23,6 +23,7 @@ export default function AuthPage() {
   const [error, setError] = useState("");
   const [showForgot, setShowForgot] = useState(false);
   const [isRegistrationEnabled, setIsRegistrationEnabled] = useState(true);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const router = useRouter();
   const { reloadData } = useAccounting();
 
@@ -33,6 +34,8 @@ export default function AuthPage() {
       if (existing.role === 'Admin') router.replace("/dashboard");
       else if (existing.role === 'Staff') router.replace("/dashboard/debtors");
       else router.replace("/profile");
+    } else {
+      setIsCheckingAuth(false);
     }
   }, [router]);
 
@@ -43,11 +46,11 @@ export default function AuthPage() {
       .then(d => {
         const enabled = d.isRegistrationEnabled ?? true;
         setIsRegistrationEnabled(enabled);
-        // If registration is OFF and user is on the register view, snap back to login
-        if (!enabled && isRegister) setIsRegister(false);
+        if (!enabled) {
+          setIsRegister(false);
+        }
       })
       .catch(() => setIsRegistrationEnabled(true));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -134,14 +137,25 @@ export default function AuthPage() {
         // Save persistent 30-day session
         saveSession(user);
         
-        if (user.role === 'Admin') router.push("/dashboard");
-        else if (user.role === 'Staff') router.push("/dashboard/debtors");
-        else router.push("/profile");
+        if (user.role === 'Admin') router.replace("/dashboard");
+        else if (user.role === 'Staff') router.replace("/dashboard/debtors");
+        else router.replace("/profile");
       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
     }
   };
+
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="flex flex-col items-center gap-3 text-slate-400">
+          <Store size={36} className="animate-pulse text-indigo-600" />
+          <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Verifying session…</p>
+        </div>
+      </div>
+    );
+  }
 
   const isStudent = loginMode === 'Student';
 
@@ -182,7 +196,7 @@ export default function AuthPage() {
         </div>
       </div>
 
-      <div className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden backdrop-blur-md transition-all duration-500 ${isStudent ? 'bg-white/90 border border-white/40' : 'bg-white border border-slate-200'}`}>
+      <div className={`w-full max-w-sm rounded-2xl shadow-2xl overflow-hidden backdrop-blur-md transition-all duration-500 scroll-reveal-scale ${isStudent ? 'bg-white/90 border border-white/40' : 'bg-white border border-slate-200'}`}>
         {/* Header Section */}
         <div className={`px-5 py-4 flex flex-col items-center text-center relative overflow-hidden ${isStudent ? 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white' : 'bg-slate-800 text-white'}`}>
           <div className="bg-white/20 p-2.5 rounded-full mb-1.5 shadow-inner relative z-10 backdrop-blur-sm">
@@ -197,10 +211,14 @@ export default function AuthPage() {
         <div className="px-5 py-4">
           <div className="mb-3">
             <h2 className="text-base font-bold text-slate-800 tracking-tight">
-              {isRegister ? "Student Registration" : `Welcome, ${loginMode}`}
+              {isRegister 
+                ? (!isRegistrationEnabled ? "Registration Closed" : "Student Registration")
+                : `Welcome, ${loginMode}`}
             </h2>
             <p className="text-slate-500 text-xs font-medium">
-              {isRegister ? "Create your account to view statements" : "Sign in to continue"}
+              {isRegister 
+                ? (!isRegistrationEnabled ? "New registrations are paused" : "Create your account to view statements")
+                : "Sign in to continue"}
             </p>
           </div>
 
@@ -211,129 +229,162 @@ export default function AuthPage() {
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-2.5">
-            {isRegister && isStudent && (
-              <div className="space-y-2.5 animate-in slide-in-from-top-4 fade-in duration-300">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500" htmlFor="name">Full Name</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <User size={14} className="text-slate-400" />
-                    </div>
-                    <input 
-                      type="text" id="name" value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none text-sm font-semibold text-slate-800 placeholder-slate-400"
-                      placeholder="e.g. Aman Khan"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500" htmlFor="batch">Batch</label>
-                  <select
-                    id="batch" value={batch}
-                    onChange={(e) => setBatch(e.target.value as Batch)}
-                    className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none text-sm font-semibold text-slate-800"
-                  >
-                    <option value="" disabled>Select your batch</option>
-                    {BATCHES.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
-                </div>
+          {isRegister && isStudent && !isRegistrationEnabled ? (
+            <div className="py-6 text-center space-y-4 animate-in fade-in zoom-in-95">
+              <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center mx-auto shadow-inner border border-rose-100">
+                <AlertCircle size={32} />
               </div>
-            )}
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500" htmlFor="phone">
-                {loginMode === 'Admin' ? 'User ID' : loginMode === 'Staff' ? 'Staff ID' : (isRegister ? 'Phone (+91 · 10 digits)' : 'Phone Number')}
-              </label>
-              {isRegister && isStudent ? (
-                <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 transition-all overflow-hidden">
-                  <div className="flex items-center gap-1 pl-3 pr-2 border-r border-slate-200 select-none shrink-0 py-2">
-                    <Phone size={13} className="text-slate-400" />
-                    <span className="text-xs font-bold text-slate-500">+91</span>
-                  </div>
-                  <input
-                    type="tel" inputMode="numeric" id="phone" value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
-                    maxLength={10}
-                    className="flex-1 px-3 py-2 bg-transparent outline-none text-sm font-semibold text-slate-800 placeholder-slate-300"
-                    placeholder="98765 43210"
-                  />
-                </div>
-              ) : (
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    {(loginMode === 'Staff' || loginMode === 'Admin')
-                      ? <User size={14} className="text-slate-400" />
-                      : <Phone size={14} className="text-slate-400" />}
-                  </div>
-                  <input 
-                    type="text" id="phone" value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    className={`w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 transition-all outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 focus:bg-white ${isStudent ? 'focus:ring-indigo-500 focus:border-indigo-500' : 'focus:ring-slate-600 focus:border-slate-600'}`}
-                    placeholder={loginMode === 'Admin' ? 'Enter User ID' : loginMode === 'Staff' ? 'Enter Staff ID' : 'Mobile number'}
-                  />
-                </div>
-              )}
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500" htmlFor="password">Password</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <KeyRound size={14} className="text-slate-400" />
-                </div>
-                <input 
-                  type={showPassword ? "text" : "password"} id="password" value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 transition-all outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 focus:bg-white ${isStudent ? 'focus:ring-indigo-500 focus:border-indigo-500' : 'focus:ring-slate-600 focus:border-slate-600'}`}
-                  placeholder="••••••••"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
+              <div className="space-y-1.5 px-2">
+                <h3 className="text-base font-bold text-slate-800">Registration is closed</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">
+                  Public student registration is currently closed. If you need an account, please contact the Aman Store Admin or Staff to add you.
+                </p>
               </div>
-            </div>
-
-            {!isRegister && (
-              <div className="flex justify-end pt-1">
-                <button
-                  type="button"
-                  onClick={() => setShowForgot(true)}
-                  className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition-colors"
-                >
-                  Forgot Password?
-                </button>
-              </div>
-            )}
-
-            <button 
-              type="submit" 
-              className={`w-full text-white font-bold tracking-wide py-2.5 rounded-xl transition-all shadow-md mt-1 flex justify-center items-center gap-2 group active:scale-[0.98] ${isStudent ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 shadow-indigo-500/30' : 'bg-slate-800 hover:bg-slate-900 shadow-slate-800/25'}`}
-            >
-              {isRegister ? "Complete Registration" : "Log In"}
-              <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-            </button>
-          </form>
-
-          {isStudent && isRegistrationEnabled && (
-            <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-center">
-              <span className="text-xs font-medium text-slate-500 mr-2">
-                {isRegister ? "Already registered?" : "New student?"}
-              </span>
               <button 
-                type="button"
-                onClick={() => { setIsRegister(!isRegister); setError(""); setPhone(""); setName(""); setBatch(""); setPassword(""); }}
-                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                type="button" 
+                onClick={() => { setIsRegister(false); setError(""); }}
+                className="w-full text-white font-bold tracking-wide py-2.5 rounded-xl transition-all shadow-md bg-slate-800 hover:bg-slate-900 shadow-slate-800/25 flex justify-center items-center gap-2 active:scale-[0.98]"
               >
-                {isRegister ? "Sign In" : "Register Here"}
+                Back to Sign In
               </button>
             </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="space-y-2.5">
+              {isRegister && isStudent && (
+                <div className="space-y-2.5 animate-in slide-in-from-top-4 fade-in duration-300">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500" htmlFor="name">Full Name</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <User size={14} className="text-slate-400" />
+                      </div>
+                      <input 
+                        type="text" id="name" value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        className="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none text-sm font-semibold text-slate-800 placeholder-slate-400"
+                        placeholder="e.g. Aman Khan"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500" htmlFor="batch">Batch</label>
+                    <select
+                      id="batch" value={batch}
+                      onChange={(e) => setBatch(e.target.value as Batch)}
+                      className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all outline-none text-sm font-semibold text-slate-800"
+                    >
+                      <option value="" disabled>Select your batch</option>
+                      {BATCHES.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                  </div>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500" htmlFor="phone">
+                  {loginMode === 'Admin' ? 'User ID' : loginMode === 'Staff' ? 'Staff ID' : (isRegister ? 'Phone (+91 · 10 digits)' : 'Phone Number')}
+                </label>
+                {isRegister && isStudent ? (
+                  <div className="flex items-center bg-slate-50 border border-slate-200 rounded-lg focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 transition-all overflow-hidden">
+                    <div className="flex items-center gap-1 pl-3 pr-2 border-r border-slate-200 select-none shrink-0 py-2">
+                      <Phone size={13} className="text-slate-400" />
+                      <span className="text-xs font-bold text-slate-500">+91</span>
+                    </div>
+                    <input
+                      type="tel" inputMode="numeric" id="phone" value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))}
+                      maxLength={10}
+                      className="flex-1 px-3 py-2 bg-transparent outline-none text-sm font-semibold text-slate-800 placeholder-slate-300"
+                      placeholder="98765 43210"
+                    />
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      {(loginMode === 'Staff' || loginMode === 'Admin')
+                        ? <User size={14} className="text-slate-400" />
+                        : <Phone size={14} className="text-slate-400" />}
+                    </div>
+                    <input 
+                      type="text" id="phone" value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className={`w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 transition-all outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 focus:bg-white ${isStudent ? 'focus:ring-indigo-500 focus:border-indigo-500' : 'focus:ring-slate-600 focus:border-slate-600'}`}
+                      placeholder={loginMode === 'Admin' ? 'Enter User ID' : loginMode === 'Staff' ? 'Enter Staff ID' : 'Mobile number'}
+                    />
+                  </div>
+                )}
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500" htmlFor="password">Password</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                    <KeyRound size={14} className="text-slate-400" />
+                  </div>
+                  <input 
+                    type={showPassword ? "text" : "password"} id="password" value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`w-full pl-9 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-lg focus:ring-2 transition-all outline-none text-sm font-semibold text-slate-800 placeholder-slate-400 focus:bg-white ${isStudent ? 'focus:ring-indigo-500 focus:border-indigo-500' : 'focus:ring-slate-600 focus:border-slate-600'}`}
+                    placeholder="••••••••"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-600 transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+
+              {!isRegister && (
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setShowForgot(true)}
+                    className="text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition-colors"
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              )}
+
+              <button 
+                type="submit" 
+                className={`w-full text-white font-bold tracking-wide py-2.5 rounded-xl transition-all shadow-md mt-1 flex justify-center items-center gap-2 group active:scale-[0.98] ${isStudent ? 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-90 shadow-indigo-500/30' : 'bg-slate-800 hover:bg-slate-900 shadow-slate-800/25'}`}
+              >
+                {isRegister ? "Complete Registration" : "Log In"}
+                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              </button>
+            </form>
+          )}
+
+          {isStudent && (
+            isRegistrationEnabled ? (
+              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-center">
+                <span className="text-xs font-medium text-slate-500 mr-2">
+                  {isRegister ? "Already registered?" : "New student?"}
+                </span>
+                <button 
+                  type="button" 
+                  onClick={() => { setIsRegister(!isRegister); setError(""); setPhone(""); setName(""); setBatch(""); setPassword(""); }}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  {isRegister ? "Sign In" : "Register Here"}
+                </button>
+              </div>
+            ) : isRegister ? (
+              <div className="mt-3 pt-3 border-t border-slate-100 flex items-center justify-center">
+                <button 
+                  type="button" 
+                  onClick={() => { setIsRegister(false); setError(""); }}
+                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 transition-colors"
+                >
+                  Back to Sign In
+                </button>
+              </div>
+            ) : null
           )}
         </div>
       </div>

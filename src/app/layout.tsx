@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AccountingProvider } from "@/lib/AccountingContext";
 import ServiceWorkerRegistrar from "@/components/ServiceWorkerRegistrar";
+import ScrollAnimationObserver from "@/components/ScrollAnimationObserver";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -54,6 +55,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-full flex flex-col bg-gradient-to-br from-indigo-50 via-white to-purple-50 bg-fixed">
         <ServiceWorkerRegistrar />
+        <ScrollAnimationObserver />
         <AccountingProvider>{children}</AccountingProvider>
       </body>
     </html>

@@ -7,6 +7,7 @@ import { ArrowLeft, Plus, Trash2, CheckCircle2, AlertCircle, X } from 'lucide-re
 import Link from 'next/link';
 import { JournalLine, AccountType, User } from '@/lib/types';
 import { useEffect } from 'react';
+import { getSession } from '@/lib/auth';
 
 export default function NewJournalEntryPage() {
   const { accounts, debtors, addJournalEntry, updateJournalEntry, addAccount, addDebtor, journalEntries } = useAccounting();
@@ -28,8 +29,8 @@ export default function NewJournalEntryPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
   useEffect(() => {
-    const userStr = sessionStorage.getItem("aman_store_current_user");
-    if (userStr) setCurrentUser(JSON.parse(userStr));
+    const u = getSession();
+    if (u) setCurrentUser(u);
 
     // Auto-remember: load last used Book Number from localStorage
     if (!editId) {

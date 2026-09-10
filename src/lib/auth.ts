@@ -7,35 +7,62 @@ const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 export function saveSession(user: User): void {
   if (typeof window === "undefined") return;
   const expiry = Date.now() + THIRTY_DAYS_MS;
-  localStorage.setItem(KEY, JSON.stringify(user));
+  const cleanUser: User = {
+    id: user.id,
+    name: user.name,
+    phone: user.phone,
+    role: user.role,
+    batch: user.batch,
+    debtorId: user.debtorId,
+    visiblePassword: user.visiblePassword,
+  };
+  localStorage.setItem(KEY, JSON.stringify(cleanUser));
   localStorage.setItem(EXPIRY_KEY, String(expiry));
-  // Also keep sessionStorage in sync for legacy reads in other components
-  sessionStorage.setItem(KEY, JSON.stringify(user));
+  sessionStorage.setItem(KEY, JSON.stringify(cleanUser));
+  // Keep cookie in sync for Next.js middleware
+  document.cookie = `aman_store_session=${encodeURIComponent(JSON.stringify(cleanUser))}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`;
 }
 
 export function getSession(): User | null {
   if (typeof window === "undefined") return null;
 
-  // Check localStorage for long-lived session
-  const raw = localStorage.getItem(KEY);
-  const expiry = localStorage.getItem(EXPIRY_KEY);
+  try {
+    // Check localStorage for long-lived session
+    const raw = localStorage.getItem(KEY);
+    const expiry = localStorage.getItem(EXPIRY_KEY);
 
-  if (raw && expiry) {
-    if (Date.now() < Number(expiry)) {
-      const user: User = JSON.parse(raw);
-      // Refresh sessionStorage so legacy reads still work
-      sessionStorage.setItem(KEY, raw);
-      return user;
-    } else {
-      // Expired – clean up
-      clearSession();
-      return null;
+    if (raw && expiry) {
+      if (Date.now() < Number(expiry)) {
+        const user: User = JSON.parse(raw);
+        // Clean out any legacy storeCode or storeName attributes
+        if ((user as any).storeCode || (user as any).storeName) {
+          delete (user as any).storeCode;
+          delete (user as any).storeName;
+          localStorage.setItem(KEY, JSON.stringify(user));
+        }
+        // Refresh sessionStorage so legacy reads still work
+        sessionStorage.setItem(KEY, JSON.stringify(user));
+        // Keep cookie in sync for middleware
+        document.cookie = `aman_store_session=${encodeURIComponent(JSON.stringify(user))}; path=/; max-age=${30 * 24 * 60 * 60}; SameSite=Lax`;
+        return user;
+      } else {
+        // Expired – clean up
+        clearSession();
+        return null;
+      }
     }
-  }
 
-  // Fallback: check old sessionStorage (e.g., tab was never closed during this session)
-  const sessionRaw = sessionStorage.getItem(KEY);
-  if (sessionRaw) return JSON.parse(sessionRaw);
+    // Fallback: check old sessionStorage
+    const sessionRaw = sessionStorage.getItem(KEY);
+    if (sessionRaw) {
+      const user: User = JSON.parse(sessionRaw);
+      return user;
+    }
+  } catch (e) {
+    console.error("Failed to parse session:", e);
+    clearSession();
+    return null;
+  }
 
   return null;
 }
@@ -45,4 +72,5 @@ export function clearSession(): void {
   localStorage.removeItem(KEY);
   localStorage.removeItem(EXPIRY_KEY);
   sessionStorage.removeItem(KEY);
+  document.cookie = "aman_store_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
 }

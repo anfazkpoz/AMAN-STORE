@@ -3,10 +3,11 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useAccounting } from "@/lib/AccountingContext";
-import { ArrowLeft, User, Phone, CheckCircle2, History, Trash2 } from "lucide-react";
+import { ArrowLeft, User, Phone, CheckCircle2, History, Trash2, MessageCircle } from "lucide-react";
 import { formatDate } from "@/lib/formatDate";
 import { useState, useEffect } from "react";
 import { User as UserType, Debtor } from "@/lib/types";
+import { getSession } from "@/lib/auth";
 
 export default function StudentLedgerPage() {
   const params = useParams();
@@ -23,8 +24,8 @@ export default function StudentLedgerPage() {
   const [success, setSuccess] = useState(false);
 
   useEffect(() => {
-    const userStr = sessionStorage.getItem("aman_store_current_user");
-    if (userStr) setCurrentUser(JSON.parse(userStr));
+    const u = getSession();
+    if (u) setCurrentUser(u);
   }, []);
 
   const studentDebtor = debtors.find(d => d.id === id);
@@ -98,6 +99,23 @@ export default function StudentLedgerPage() {
     }
   };
 
+  const handleWhatsAppReminder = () => {
+    const baseUrl = typeof window !== 'undefined' ? window.location.origin : '';
+    const studentId = studentDebtor.id || (studentDebtor as any)._id;
+    const portalLink = `${baseUrl}/student/${studentId}`;
+    const originalMessage = `Hi ${studentDebtor.name}, this is a gentle reminder from AMAN STORE. Your current pending balance is ₹${Math.abs(currentBalance).toLocaleString()}. Please clear it at the earliest.`;
+    const finalMessage = `${originalMessage}\n\nView your full account details here: ${portalLink}`;
+    const msg = encodeURIComponent(finalMessage);
+    const number = studentDebtor.mobileNumber?.replace(/[^0-9]/g, '') || '';
+    const waNumber = number.length === 10 ? `91${number}` : number;
+
+    if (waNumber) {
+      window.open(`https://wa.me/${waNumber}?text=${msg}`, '_blank');
+    } else {
+      alert("No valid phone number available for this student.");
+    }
+  };
+
   return (
     <div className="p-4 sm:p-8 max-w-4xl mx-auto pb-24 relative space-y-6">
       
@@ -136,6 +154,15 @@ export default function StudentLedgerPage() {
                <Phone size={14} />
                <span>{studentDebtor.mobileNumber || "No Phone"}</span>
              </div>
+             {studentDebtor.mobileNumber && (
+               <button
+                 onClick={handleWhatsAppReminder}
+                 className="mt-2.5 inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 text-xs font-bold rounded-xl border border-emerald-200 transition-all shadow-sm active:scale-95"
+               >
+                 <MessageCircle size={14} className="text-emerald-600" />
+                 <span>Send WhatsApp Reminder</span>
+               </button>
+             )}
            </div>
         </div>
         <div className="bg-slate-50 px-6 py-4 rounded-2xl sm:text-right border border-slate-100 min-w-[200px]">

@@ -4,6 +4,7 @@ import { useAccounting } from '@/lib/AccountingContext';
 import { formatDate } from '@/lib/formatDate';
 import { Library, ArrowLeft, Trash2, Search } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
+import { getSession } from '@/lib/auth';
 
 export default function LedgerPage() {
   const { accounts, journalEntries, deleteJournalEntry, deleteAccount } = useAccounting();
@@ -14,8 +15,8 @@ export default function LedgerPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
-    const userStr = sessionStorage.getItem("aman_store_current_user");
-    if (userStr) setCurrentUser(JSON.parse(userStr));
+    const u = getSession();
+    if (u) setCurrentUser(u);
   }, []);
 
   // System default accounts that should NOT be deletable
@@ -29,7 +30,7 @@ export default function LedgerPage() {
 
     const computed = journalEntries
       .filter((entry: any) => entry.lines.some((l: any) => l.accountId === selectedAccountId))
-      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()) // Ascending by entry date
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()) // Ascending — needed for correct running balance
       .flatMap((entry: any) => {
         const matchingLines = entry.lines.filter((l: any) => l.accountId === selectedAccountId);
 
@@ -64,7 +65,8 @@ export default function LedgerPage() {
     let runningBalance = 0;
     const isDebitNormal = selectedAccount?.balanceType === 'Debit';
 
-    return computed.map((t: any) => {
+    // Compute running balance in chronological order first
+    const withBalance = computed.map((t: any) => {
       if (t.type === 'Debit') {
         runningBalance += isDebitNormal ? t.amount : -t.amount;
       } else {
@@ -72,6 +74,9 @@ export default function LedgerPage() {
       }
       return { ...t, balance: runningBalance };
     });
+
+    // Reverse so latest entry appears at the top
+    return [...withBalance].reverse();
   }, [selectedAccountId, journalEntries, accounts, selectedAccount?.balanceType]);
 
   const filteredAccounts = React.useMemo(() => {
@@ -106,7 +111,7 @@ export default function LedgerPage() {
         
         <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
           {!selectedAccountId && (
-            <div className="relative w-full sm:w-64 animate-in fade-in duration-300">
+            <div className="relative w-full sm:w-64">
               <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
               <input 
                 type="text" 
@@ -118,7 +123,7 @@ export default function LedgerPage() {
             </div>
           )}
           {selectedAccountId && (
-            <div className="w-full sm:w-auto max-w-sm animate-in fade-in duration-300">
+            <div className="w-full sm:w-auto max-w-sm">
               <select 
                 value={selectedAccountId}
                 onChange={(e) => setSelectedAccountId(e.target.value)}
@@ -135,7 +140,7 @@ export default function LedgerPage() {
       </div>
 
       {!selectedAccountId ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in duration-300">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 scroll-reveal scroll-stagger">
           {filteredAccounts.map(acc => {
             const isAbnormal = acc.balance < 0;
             const sign = isAbnormal 
@@ -220,7 +225,7 @@ export default function LedgerPage() {
           )}
         </div>
       ) : (
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in duration-300">
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden scroll-reveal">
           {/* Ledger Header Summary */}
           <div className="p-6 bg-slate-50/50 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>

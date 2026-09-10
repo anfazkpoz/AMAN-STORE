@@ -171,7 +171,7 @@ export default function ProfilePage() {
         )}
 
         {/* Header & Logout */}
-        <div className="flex justify-between items-center mb-6 pt-2 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-75 fill-mode-both">
+        <div className="flex justify-between items-center mb-6 pt-2 scroll-reveal">
           <div>
             <h1 className="text-2xl font-black tracking-tight text-slate-800">Student Portal</h1>
             <p className="text-xs font-bold tracking-widest uppercase text-slate-400 mt-0.5">{user.batch} Batch</p>
@@ -214,7 +214,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Profile Details */}
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 flex items-center gap-4 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-100 fill-mode-both">
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 flex items-center gap-4 scroll-reveal">
           <div className="w-14 h-14 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center text-slate-400 shrink-0">
             <User size={24} />
           </div>
@@ -228,7 +228,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Financial Overview Card */}
-        <div className="bg-gradient-to-r from-slate-800 to-indigo-900 rounded-3xl shadow-xl shadow-indigo-900/20 p-8 text-white relative overflow-hidden animate-[slideInLeft_0.6s_ease-out_forwards] delay-150 fill-mode-both transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-900/40">
+        <div className="bg-gradient-to-r from-slate-800 to-indigo-900 rounded-3xl shadow-xl shadow-indigo-900/20 p-8 text-white relative overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl hover:shadow-indigo-900/40 scroll-reveal-scale">
           <div className="absolute top-0 right-0 p-8 opacity-5">
             <Banknote size={160} className="-rotate-12 transform translate-x-4 -translate-y-4" />
           </div>
@@ -309,7 +309,7 @@ export default function ProfilePage() {
         </div>
 
         {/* Transaction History Statement */}
-        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300 fill-mode-both mb-8">
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-100 overflow-hidden mb-8 scroll-reveal">
           <div className="p-6 border-b border-slate-50 flex items-center gap-3">
             <h3 className="text-base font-black text-slate-800">Recent Transactions</h3>
           </div>

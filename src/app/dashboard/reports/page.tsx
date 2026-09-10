@@ -2,15 +2,67 @@
 
 import { formatDate, getTodayFormatted } from '@/lib/formatDate';
 import { FileText, TrendingUp, Scale, Building2, Printer, Users, Download } from 'lucide-react';
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useAccounting } from '@/lib/AccountingContext';
 
 type ReportTab = 'trial_balance' | 'pnl' | 'balance_sheet' | 'students_balance';
 
 export default function ReportsPage() {
-  const { accounts, debtors } = useAccounting();
+  // Pull journalEntries so every balance is computed live (same as Ledger page)
+  const { accounts, journalEntries, debtors } = useAccounting();
   const [activeTab, setActiveTab] = useState<ReportTab>('trial_balance');
-  const [batchFilter, setBatchFilter] = useState<string>('All Batches');
+  const BATCH_ORDER = ['JD1', 'JD2', 'JD3', 'HS1', 'HS2', 'HS3', 'BS1', 'BS2', 'BS3', 'BS4', 'BS5', 'BS6'];
+  const [selectedBatches, setSelectedBatches] = useState<Set<string>>(new Set());
+  const [showBatchDropdown, setShowBatchDropdown] = useState(false);
+
+  const availableBatches = BATCH_ORDER.filter(b => debtors.some(d => d.batch === b));
+  const allBatchesSelected = selectedBatches.size === 0;
+  const batchFilterLabel = allBatchesSelected
+    ? 'All Batches'
+    : selectedBatches.size === 1
+      ? [...selectedBatches][0]
+      : `${selectedBatches.size} Batches`;
+
+  const toggleBatch = (batch: string) => {
+    setSelectedBatches(prev => {
+      const next = new Set(prev);
+      if (next.has(batch)) next.delete(batch);
+      else next.add(batch);
+      return next;
+    });
+  };
+
+  const sortByBatch = (a: any, b: any) => {
+    const idxA = BATCH_ORDER.indexOf(a.batch || '');
+    const idxB = BATCH_ORDER.indexOf(b.batch || '');
+    const batchDiff = (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+    if (batchDiff !== 0) return batchDiff;
+    return a.name.localeCompare(b.name);
+  };
+
+  // ── LIVE BALANCE MAP ─────────────────────────────────────────────────────────
+  // Aggregate every journal line per accountId using the EXACT same sign logic
+  // as the Ledger page. This eliminates the Account.balance drift caused by
+  // deleted / edited entries not updating the stored field correctly.
+  const liveBalanceMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    for (const entry of journalEntries) {
+      if (!entry.lines) continue;
+      for (const line of entry.lines) {
+        const acc = accounts.find(a => a.id === line.accountId);
+        if (!acc) continue;
+        const prev = map[line.accountId] ?? 0;
+        // line type matches account's natural balance side → adds to balance
+        // opposite side → subtracts from balance
+        if (line.type === acc.balanceType) {
+          map[line.accountId] = prev + line.amount;
+        } else {
+          map[line.accountId] = prev - line.amount;
+        }
+      }
+    }
+    return map;
+  }, [journalEntries, accounts]);
 
   // Financial Year period: April 1 → today
   const fyPeriod = (() => {
@@ -24,34 +76,37 @@ export default function ReportsPage() {
     return { startDate, endDate, label: `${startDate} TO ${endDate}` };
   })();
 
-  // Compute Trial Balance Array with Sundry Debtors & Creditors grouping
+  // Compute Trial Balance — use liveBalance instead of stored Account.balance
   const regularAccounts: any[] = [];
   let sundryDebtorsTotal = 0;
   let sundryCreditorsTotal = 0;
 
   accounts.forEach(a => {
+    const isDebtorAccount = debtors.some(d => d.accountId === a.id);
+
+    if (isDebtorAccount) {
+      // Student accounts are tracked via Debtor model; use stored balance for
+      // the Sundry Debtors/Creditors roll-up (consistent with the debtors page)
+      if (a.balance > 0) sundryDebtorsTotal += a.balance;
+      else if (a.balance < 0) sundryCreditorsTotal += Math.abs(a.balance);
+      return;
+    }
+
+    // For all non-debtor accounts: use live balance aggregated from journal lines
+    const liveBal = liveBalanceMap[a.id] ?? 0;
+    if (liveBal === 0) return; // Skip accounts with no activity
+
     let dr = 0;
     let cr = 0;
-    if (a.balance >= 0) {
-      if (a.balanceType === 'Debit') dr = a.balance;
-      else cr = a.balance;
+    if (liveBal >= 0) {
+      if (a.balanceType === 'Debit') dr = liveBal;
+      else cr = liveBal;
     } else {
-      if (a.balanceType === 'Debit') cr = Math.abs(a.balance);
-      else dr = Math.abs(a.balance);
+      if (a.balanceType === 'Debit') cr = Math.abs(liveBal);
+      else dr = Math.abs(liveBal);
     }
-    
-    if (debtors.some(d => d.accountId === a.id)) {
-      // It's a student/customer debtor account
-      if (a.balance > 0) {
-        sundryDebtorsTotal += a.balance;
-      } else if (a.balance < 0) {
-        sundryCreditorsTotal += Math.abs(a.balance);
-      }
-    } else {
-      if (dr > 0 || cr > 0) {
-        regularAccounts.push({ ...a, dr, cr });
-      }
-    }
+
+    regularAccounts.push({ ...a, balance: liveBal, dr, cr });
   });
 
   const trialBalance = [...regularAccounts];
@@ -308,7 +363,7 @@ export default function ReportsPage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto pb-24 print:p-0 print:m-0">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 pt-4 gap-4 print:hidden">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 pt-4 gap-4 print:hidden scroll-reveal">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
             <FileText size={24} className="text-primary" />
@@ -345,7 +400,7 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px] print:rounded-none print:shadow-none print:border-none print:m-0 print:p-0">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px] print:rounded-none print:shadow-none print:border-none print:m-0 print:p-0 scroll-reveal">
         {activeTab === 'trial_balance' && (
           <div className="animate-in fade-in duration-300">
             <div className="p-6 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center">
@@ -552,23 +607,51 @@ export default function ReportsPage() {
 
         {activeTab === 'students_balance' && (
           <div className="animate-in fade-in duration-300">
+            {/* ── Toolbar (screen only) ── */}
             <div className="p-6 bg-slate-50/50 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 print:hidden">
               <div>
                 <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wide">Student Balances Report</h2>
-                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">Exportable PDF Report</p>
+                <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mt-1">Exportable PDF Report — 3-Column Layout</p>
               </div>
-              <div className="flex items-center gap-3">
-                <select 
-                  value={batchFilter}
-                  onChange={(e) => setBatchFilter(e.target.value)}
-                  className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm"
-                >
-                  <option value="All Batches">All Batches</option>
-                  {Array.from(new Set(debtors.map(d => d.batch).filter(Boolean))).sort().map(b => (
-                    <option key={String(b)} value={String(b)}>{String(b)}</option>
-                  ))}
-                </select>
-                <button 
+              <div className="flex items-center gap-3 flex-wrap">
+                {/* Multi-Batch Selector */}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowBatchDropdown(v => !v)}
+                    className="flex items-center gap-2 px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 shadow-sm min-w-[130px] justify-between"
+                  >
+                    <span>{batchFilterLabel}</span>
+                    <svg className={`w-4 h-4 text-slate-400 transition-transform ${showBatchDropdown ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                  </button>
+                  {showBatchDropdown && (
+                    <div className="absolute right-0 top-full mt-1 z-50 bg-white border border-slate-200 rounded-xl shadow-xl p-2 min-w-[160px] animate-in fade-in zoom-in-95">
+                      <button
+                        type="button"
+                        onClick={() => { setSelectedBatches(new Set()); setShowBatchDropdown(false); }}
+                        className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-colors mb-1 ${
+                          allBatchesSelected ? 'bg-indigo-600 text-white' : 'hover:bg-slate-50 text-slate-700'
+                        }`}
+                      >
+                        ✓ All Batches
+                      </button>
+                      <div className="border-t border-slate-100 pt-1 space-y-0.5">
+                        {availableBatches.map(b => (
+                          <label key={b} className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-slate-50 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={selectedBatches.has(b)}
+                              onChange={() => toggleBatch(b)}
+                              className="w-3.5 h-3.5 accent-indigo-600 rounded"
+                            />
+                            <span className="text-xs font-bold text-slate-700">{b}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <button
                   onClick={() => window.print()}
                   className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 text-sm font-bold rounded-xl transition-colors shadow-sm"
                 >
@@ -577,76 +660,118 @@ export default function ReportsPage() {
               </div>
             </div>
 
-            {/* Print Header (Only visible on print) — Compact */}
+            {/* ── Print Header (print only) ── */}
             <div className="hidden print:block text-center p-4 border-b-2 border-slate-800 mb-4">
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">AMAN STORE</h1>
-              <h2 className="text-lg font-bold text-slate-700 mt-1 uppercase tracking-wide">
-                Statement of Student Balances{batchFilter !== 'All Batches' ? ` - ${batchFilter}` : ''}
+              <h2 className="text-base font-bold text-slate-700 mt-1 uppercase tracking-wide">
+                Statement of Student Balances
+                {!allBatchesSelected ? ` — ${[...selectedBatches].join(', ')}` : ''}
               </h2>
               <p className="text-xs font-medium text-slate-500 mt-0.5">Generated: {getTodayFormatted()}</p>
             </div>
 
-            <div className="overflow-x-auto p-0 sm:p-6 print:p-0">
-              <table className="w-full text-sm text-left border-collapse">
-                <thead className="bg-indigo-50/50 border-y py-2 border-slate-200 text-xs text-indigo-900 uppercase tracking-wider print:bg-slate-100 print:text-black">
-                  <tr>
-                    <th className="px-6 py-4 font-bold border-b border-slate-200">Name</th>
-                    <th className="px-6 py-4 font-bold border-b border-slate-200">Batch</th>
-                    <th className="px-6 py-4 font-bold text-right border-b border-slate-200">Balance (₹)</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 print:divide-y-2 print:divide-slate-200">
-                  {(() => {
-                    const filteredDebtors = debtors.filter(student => {
-                      const acc = accounts.find(a => a.id === student.accountId);
-                      const bal = acc?.balance || 0;
-                      if (bal <= 0) return false;
-                      if (batchFilter !== 'All Batches' && student.batch !== batchFilter) return false;
-                      return true;
-                    });
-                    
-                    if (filteredDebtors.length === 0) {
-                      return (
-                        <tr>
-                          <td colSpan={3} className="px-6 py-12 text-center text-slate-500 italic">No students found with pending balance.</td>
-                        </tr>
-                      );
-                    }
-                    
-                    const totalDues = filteredDebtors.reduce((sum, student) => {
-                       const acc = accounts.find(a => a.id === student.accountId);
-                       return sum + (acc?.balance || 0);
-                    }, 0);
+            {/* ── Body ── */}
+            <div className="p-0 sm:p-6 print:p-2">
+              {(() => {
+                const filteredDebtors = debtors
+                  .filter(student => {
+                    const acc = accounts.find(a => a.id === student.accountId);
+                    const bal = acc?.balance || 0;
+                    if (bal <= 0) return false;
+                    if (!allBatchesSelected && !selectedBatches.has(student.batch || '')) return false;
+                    return true;
+                  })
+                  .sort(sortByBatch);
 
-                    return (
-                      <>
+                const totalDues = filteredDebtors.reduce((sum, student) => {
+                  const acc = accounts.find(a => a.id === student.accountId);
+                  return sum + (acc?.balance || 0);
+                }, 0);
+
+                if (filteredDebtors.length === 0) {
+                  return (
+                    <div className="py-16 text-center text-slate-400 italic text-sm">No students found with a pending balance.</div>
+                  );
+                }
+
+                return (
+                  <>
+                    {/* ── Screen preview table ── */}
+                    <div className="print:hidden overflow-x-auto">
+                      <table className="w-full text-sm text-left border-collapse">
+                        <thead className="bg-indigo-50/50 border-y border-slate-200 text-xs text-indigo-900 uppercase tracking-wider">
+                          <tr>
+                            <th className="px-6 py-3 font-bold">#</th>
+                            <th className="px-6 py-3 font-bold">Name</th>
+                            <th className="px-6 py-3 font-bold">Batch</th>
+                            <th className="px-6 py-3 font-bold text-right">Balance (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {filteredDebtors.map((student, idx) => {
+                            const acc = accounts.find(a => a.id === student.accountId);
+                            const bal = acc?.balance || 0;
+                            return (
+                              <tr key={student.id} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-6 py-3 text-xs text-slate-400 font-mono">{idx + 1}</td>
+                                <td className="px-6 py-3 font-bold text-slate-800">{student.name}</td>
+                                <td className="px-6 py-3">
+                                  <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[11px] font-bold">{student.batch || '—'}</span>
+                                </td>
+                                <td className="px-6 py-3 text-right font-mono font-bold text-red-600">
+                                  ₹{bal.toLocaleString(undefined, { minimumFractionDigits: 2 })} Dr
+                                </td>
+                              </tr>
+                            );
+                          })}
+                          <tr className="bg-slate-100 font-black border-t-4 border-slate-300">
+                            <td colSpan={3} className="px-6 py-4 text-right uppercase tracking-wider text-slate-700 text-xs">Total Outstanding Receivables</td>
+                            <td className="px-6 py-4 text-right font-mono text-red-600">₹{totalDues.toFixed(2)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* ── 3-Column Print Grid (print only) ── */}
+                    <div className="hidden print:block">
+                      <style>{`
+                        @media print {
+                          @page { size: A4 portrait; margin: 1cm; }
+                          .print-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; }
+                          .print-cell { border: 1px solid #cbd5e1; padding: 5px 8px; display: flex; justify-content: space-between; align-items: center; break-inside: avoid; }
+                          .print-cell:nth-child(3n+1) { border-left: 1px solid #cbd5e1; }
+                          .print-cell-name { font-size: 11px; font-weight: 700; color: #1e293b; }
+                          .print-cell-batch { font-size: 9px; color: #64748b; margin-left: 4px; font-weight: 600; }
+                          .print-cell-amount { font-size: 11px; font-weight: 800; color: #dc2626; font-family: monospace; white-space: nowrap; margin-left: 6px; }
+                          .print-total { border: 2px solid #1e293b; padding: 8px 12px; margin-top: 12px; display: flex; justify-content: space-between; font-weight: 900; font-size: 13px; background: #f1f5f9; }
+                        }
+                      `}</style>
+                      <div className="print-grid">
                         {filteredDebtors.map(student => {
                           const acc = accounts.find(a => a.id === student.accountId);
                           const bal = acc?.balance || 0;
                           return (
-                            <tr key={student.id} className="hover:bg-slate-50 transition-colors print:hover:bg-white break-inside-avoid">
-                              <td className="px-6 py-3 font-bold text-slate-800 print:text-black print:text-sm">{student.name}</td>
-                              <td className="px-6 py-3 font-semibold text-slate-600">{student.batch || 'N/A'}</td>
-                              <td className="px-6 py-3 text-right font-mono font-bold print:text-black text-red-600">
-                                {bal.toFixed(2)} Dr
-                              </td>
-                            </tr>
+                            <div key={student.id} className="print-cell">
+                              <div style={{ display: 'flex', alignItems: 'center', flexShrink: 1, minWidth: 0 }}>
+                                <span className="print-cell-name" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{student.name}</span>
+                                <span className="print-cell-batch">{student.batch || ''}</span>
+                              </div>
+                              <span className="print-cell-amount">₹{bal.toFixed(0)}</span>
+                            </div>
                           );
                         })}
-                        <tr className="bg-slate-50 font-black border-t-4 border-slate-200 print:border-slate-800">
-                          <td colSpan={2} className="px-6 py-4 text-right uppercase tracking-wider text-slate-700 text-xs">Total Outstanding Receivables</td>
-                          <td className="px-6 py-4 text-right font-mono text-red-600 print:text-black relative">
-                            ₹{totalDues.toFixed(2)}
-                          </td>
-                        </tr>
-                      </>
-                    );
-                  })()}
-                </tbody>
-              </table>
-              <div className="hidden print:block text-center mt-12 text-slate-500 text-xs tracking-widest border-t border-dashed border-slate-300 pt-4">
-                --- END OF REPORT ---
-              </div>
+                      </div>
+                      <div className="print-total">
+                        <span>Total Outstanding ({filteredDebtors.length} students{!allBatchesSelected ? ` · ${[...selectedBatches].join(', ')}` : ''})</span>
+                        <span style={{ fontFamily: 'monospace', color: '#dc2626' }}>₹{totalDues.toFixed(2)}</span>
+                      </div>
+                      <div style={{ textAlign: 'center', marginTop: '16px', fontSize: '10px', color: '#94a3b8', borderTop: '1px dashed #cbd5e1', paddingTop: '8px', letterSpacing: '2px' }}>
+                        --- END OF REPORT · AMAN STORE ---
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}
