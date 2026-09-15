@@ -17,6 +17,9 @@ interface AccountingState {
   addDebtor: (debtor: Omit<Debtor, 'id' | 'accountId' | 'currentBalance'>) => Promise<Debtor>;
   updateJournalEntry: (entry: JournalEntry) => Promise<void>;
   updateDebtor: (debtor: Debtor) => Promise<void>;
+  cashTransfers: any[];
+  addCashTransfer: (amount: number, staffId: string, staffName: string) => Promise<void>;
+  approveCashTransfer: (id: string) => Promise<void>;
   reloadData: () => void;
   isLoaded: boolean;
 }
@@ -27,19 +30,35 @@ export function AccountingProvider({ children }: { children: React.ReactNode }) 
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
   const [debtors, setDebtors] = useState<Debtor[]>([]);
+  const [cashTransfers, setCashTransfers] = useState<any[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
   const reloadData = async () => {
+    if (typeof window !== "undefined" && (window.location.pathname === "/" || window.location.pathname.startsWith("/login"))) {
+       setIsLoaded(true);
+       return;
+    }
+
     try {
-      const [accRes, entriesRes, debtorsRes] = await Promise.all([
+      const [accRes, entriesRes, debtorsRes, transfersRes] = await Promise.all([
         fetch('/api/accounts'),
         fetch('/api/entries'),
-        fetch('/api/debtors')
+        fetch('/api/debtors'),
+        fetch('/api/transfers').catch(() => ({ status: 200, json: () => [] } as any))
       ]);
+
+      if (accRes.status === 401 || entriesRes.status === 401 || debtorsRes.status === 401) {
+         if (typeof window !== "undefined" && window.location.pathname !== "/" && !window.location.pathname.startsWith("/login")) {
+            window.location.href = "/login";
+         }
+         setIsLoaded(true);
+         return;
+      }
 
       const accJson = await accRes.json();
       const entriesJson = await entriesRes.json();
       const debtorsJson = await debtorsRes.json();
+      const transfersJson = await transfersRes.json();
 
       // Robustly check if each response is an array before mapping
       const normAcc = Array.isArray(accJson) 
@@ -58,6 +77,10 @@ export function AccountingProvider({ children }: { children: React.ReactNode }) 
         ? debtorsJson.map((d: any) => ({ ...d, id: d._id })) 
         : [];
 
+      const normTransfers = Array.isArray(transfersJson)
+        ? transfersJson.map((t: any) => ({ ...t, id: t._id }))
+        : [];
+
       if (!Array.isArray(accJson) || !Array.isArray(entriesJson) || !Array.isArray(debtorsJson)) {
         console.error("One or more API responses were not arrays:", { accJson, entriesJson, debtorsJson });
       }
@@ -65,6 +88,7 @@ export function AccountingProvider({ children }: { children: React.ReactNode }) 
       setAccounts(normAcc);
       setJournalEntries(normEntries);
       setDebtors(normDebtors);
+      setCashTransfers(normTransfers);
       setIsLoaded(true);
     } catch (error) {
       console.error("Failed to reload data:", error);
@@ -189,8 +213,34 @@ export function AccountingProvider({ children }: { children: React.ReactNode }) 
     return normalized;
   };
 
+  const addCashTransfer = async (amount: number, staffId: string, staffName: string) => {
+    try {
+      const res = await fetch('/api/transfers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount, staffId, staffName }),
+      });
+      if (res.ok) await reloadData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const approveCashTransfer = async (id: string) => {
+    try {
+      const res = await fetch('/api/transfers', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+      if (res.ok) await reloadData();
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
-    <AccountingContext.Provider value={{ accounts, journalEntries, debtors, addJournalEntry, updateJournalEntry, deleteJournalEntry, deleteDebtor, updateDebtor, deleteAccount, addAccount, addDebtor, reloadData, isLoaded }}>
+    <AccountingContext.Provider value={{ accounts, journalEntries, debtors, cashTransfers, addJournalEntry, updateJournalEntry, deleteJournalEntry, deleteDebtor, updateDebtor, deleteAccount, addAccount, addDebtor, addCashTransfer, approveCashTransfer, reloadData, isLoaded }}>
       {children}
     </AccountingContext.Provider>
   );

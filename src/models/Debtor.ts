@@ -6,6 +6,7 @@ const DebtorSchema = new mongoose.Schema({
   mobileNumber: { type: String, required: true },
   batch: { type: String },
   currentBalance: { type: Number, default: 0 },
+  isArchived: { type: Boolean, default: false },
 }, { timestamps: true });
 
 export default mongoose.models.Debtor || mongoose.model('Debtor', DebtorSchema);

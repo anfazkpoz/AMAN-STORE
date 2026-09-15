@@ -32,7 +32,7 @@ export default function DashboardLayout({
       return;
     }
 
-    if (user.role === "Staff" && !pathname.startsWith("/dashboard/debtors") && !pathname.startsWith("/dashboard/analytics")) {
+    if (user.role === "Staff" && !pathname.startsWith("/dashboard/debtors") && !pathname.startsWith("/dashboard/analytics") && !pathname.startsWith("/dashboard/staff")) {
       router.replace("/dashboard/debtors");
       return;
     }
@@ -62,6 +62,7 @@ export default function DashboardLayout({
   if (currentUser.role === "Staff") {
     navItems = [
       { name: "Debtors", href: "/dashboard/debtors", icon: Users },
+      { name: "My Cash", href: "/dashboard/staff", icon: BookOpen },
       { name: "Analytics", href: "/dashboard/analytics", icon: BarChart2 },
     ];
   } else if (currentUser.role === "Admin") {

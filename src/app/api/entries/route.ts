@@ -1,9 +1,28 @@
 import dbConnect from "@/lib/mongodb";
 import JournalEntry from "@/models/JournalEntry";
 import Account from "@/models/Account";
+import Debtor from "@/models/Debtor";
 import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
+
+async function recalculateDebtorBalance(accountId: string) {
+  const debtor = await Debtor.findOne({ accountId });
+  if (debtor) {
+    const allEntries = await JournalEntry.find({ "lines.accountId": accountId });
+    let calcBalance = 0;
+    allEntries.forEach(entry => {
+      entry.lines.forEach((line: any) => {
+        if (line.accountId.toString() === accountId) {
+          if (line.type === 'Debit') calcBalance += Number(line.amount);
+          if (line.type === 'Credit') calcBalance -= Number(line.amount);
+        }
+      });
+    });
+    debtor.currentBalance = calcBalance;
+    await debtor.save();
+  }
+}
 
 export async function GET() {
   try {
@@ -19,6 +38,14 @@ export async function POST(req: Request) {
   try {
     await dbConnect();
     const body = await req.json();
+
+    for (const line of body.lines) {
+      const debtor = await Debtor.findOne({ accountId: line.accountId });
+      if (debtor?.isArchived) {
+        return NextResponse.json({ error: `Account for ${debtor.name} is archived. No new entries allowed.` }, { status: 403 });
+      }
+    }
+
     const entry = await JournalEntry.create(body);
 
     // Update account balances
@@ -26,11 +53,13 @@ export async function POST(req: Request) {
       const account = await Account.findById(line.accountId);
       if (account) {
         if (line.type === account.balanceType) {
-          account.balance += line.amount;
+          account.balance += Number(line.amount);
         } else {
-          account.balance -= line.amount;
+          account.balance -= Number(line.amount);
         }
         await account.save();
+
+        await recalculateDebtorBalance(account._id.toString());
       }
     }
 
@@ -56,9 +85,9 @@ export async function PUT(req: Request) {
       const account = await Account.findById(line.accountId);
       if (account) {
         if (line.type === account.balanceType) {
-          account.balance -= line.amount;
+          account.balance -= Number(line.amount);
         } else {
-          account.balance += line.amount;
+          account.balance += Number(line.amount);
         }
         await account.save();
       }
@@ -68,16 +97,24 @@ export async function PUT(req: Request) {
     const updatedEntry = await JournalEntry.findByIdAndUpdate(id, updateData, { new: true });
 
     // 3. Apply NEW account balances
+    const affectedAccounts = new Set<string>();
+    for (const line of oldEntry.lines) affectedAccounts.add(line.accountId.toString());
+    for (const line of updateData.lines) affectedAccounts.add(line.accountId.toString());
+
     for (const line of updateData.lines) {
       const account = await Account.findById(line.accountId);
       if (account) {
         if (line.type === account.balanceType) {
-          account.balance += line.amount;
+          account.balance += Number(line.amount);
         } else {
-          account.balance -= line.amount;
+          account.balance -= Number(line.amount);
         }
         await account.save();
       }
+    }
+
+    for (const accId of affectedAccounts) {
+      await recalculateDebtorBalance(accId);
     }
 
     return NextResponse.json(updatedEntry);
@@ -98,14 +135,18 @@ export async function DELETE(req: Request) {
         const account = await Account.findById(line.accountId);
         if (account) {
           if (line.type === account.balanceType) {
-            account.balance -= line.amount;
+            account.balance -= Number(line.amount);
           } else {
-            account.balance += line.amount;
+            account.balance += Number(line.amount);
           }
           await account.save();
         }
       }
       await JournalEntry.findByIdAndDelete(id);
+
+      for (const line of entry.lines) {
+        await recalculateDebtorBalance(line.accountId.toString());
+      }
     }
 
     return NextResponse.json({ message: "Journal entry deleted" });

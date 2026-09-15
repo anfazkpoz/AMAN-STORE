@@ -8,10 +8,12 @@ export function middleware(request: NextRequest) {
   const sessionCookie = request.cookies.get('aman_store_session')?.value;
   let hasValidSession = false;
 
+  let parsedSession: any = null;
+
   if (sessionCookie) {
     try {
-      const parsed = JSON.parse(decodeURIComponent(sessionCookie));
-      if (parsed && parsed.id && parsed.role) {
+      parsedSession = JSON.parse(decodeURIComponent(sessionCookie));
+      if (parsedSession && parsedSession.id && parsedSession.role) {
         hasValidSession = true;
       }
     } catch {
@@ -40,8 +42,16 @@ export function middleware(request: NextRequest) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Accessing /login with valid session -> redirect to /dashboard
+  // Accessing /login without valid session -> let it pass explicitly
+  if (isLoginRoute && !hasValidSession) {
+    return NextResponse.next();
+  }
+
+  // Accessing /login with valid session -> redirect to proper portal
   if (isLoginRoute && hasValidSession) {
+    if (parsedSession?.role === 'Student') {
+      return NextResponse.redirect(new URL('/profile', request.url));
+    }
     return NextResponse.redirect(new URL('/dashboard', request.url));
   }
 

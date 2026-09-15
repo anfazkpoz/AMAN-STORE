@@ -3,12 +3,17 @@
 import { useState, useEffect } from "react";
 import {
   UserCog, Plus, Trash2, KeyRound, Phone, User as UserIcon,
-  CheckCircle2, AlertCircle, Hash, Eye, EyeOff
+  CheckCircle2, AlertCircle, Hash, Eye, EyeOff, Copy, Check
 } from "lucide-react";
 import { User } from "@/lib/types";
+import { useAccounting } from "@/lib/AccountingContext";
+import { getSession } from "@/lib/auth";
 
 export default function StaffManagementPage() {
+  const { accounts, cashTransfers, addCashTransfer, approveCashTransfer } = useAccounting();
   const [users, setUsers] = useState<User[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [remitAmount, setRemitAmount] = useState("");
 
   // Form fields
   const [name, setName] = useState("");
@@ -20,6 +25,19 @@ export default function StaffManagementPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [copiedField, setCopiedField] = useState<'id' | 'password' | null>(null);
+
+  const handleCopy = (text: string, id: string, field: 'id' | 'password') => {
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    setCopiedField(field);
+    setTimeout(() => {
+      setCopiedId(null);
+      setCopiedField(null);
+    }, 2000);
+  };
 
   const fetchStaff = async () => {
     try {
@@ -36,6 +54,8 @@ export default function StaffManagementPage() {
 
   useEffect(() => {
     fetchStaff();
+    const user = getSession();
+    if (user) setCurrentUser(user as User);
   }, []);
 
   const handleAddStaff = async (e: React.FormEvent) => {
@@ -101,15 +121,67 @@ export default function StaffManagementPage() {
     }
   };
 
+  const staffCashAccounts = accounts.filter(a => a.name.startsWith('Cash - ') && a.balance > 0);
+  const pendingTransfers = cashTransfers.filter(t => t.status === 'pending');
+  const myStaffCash = accounts.find(a => a.name === `Cash - ${currentUser?.name}`)?.balance || 0;
+
   return (
     <div className="p-4 sm:p-6 max-w-5xl mx-auto pb-24 text-left">
 
       {/* Page Header */}
       <div className="pt-4 mb-6 scroll-reveal">
-        <h1 className="text-xl font-bold text-slate-800 tracking-tight">Staff Management</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Add and manage staff portal access</p>
+        <h1 className="text-xl font-bold text-slate-800 tracking-tight">
+          {currentUser?.role === 'Staff' ? 'My Cash Portal' : 'Staff Management'}
+        </h1>
+        <p className="text-sm text-slate-500 mt-0.5">
+          {currentUser?.role === 'Staff' ? 'Manage your cash in hand and remittances' : 'Add and manage staff portal access'}
+        </p>
       </div>
 
+      {currentUser?.role === 'Staff' && (
+        <div className="mb-8 p-6 bg-indigo-50 border border-indigo-100 rounded-2xl scroll-reveal">
+          <h2 className="text-lg font-bold text-indigo-900 mb-1">Staff Cash Remittance</h2>
+          <p className="text-xs text-indigo-700 mb-4">Transfer your cash in hand to the Main Admin.</p>
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1 w-full">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1 block">Cash in Hand</label>
+              <div className="px-4 py-3 bg-white border border-indigo-200 rounded-xl text-lg font-black text-indigo-800">
+                ₹{myStaffCash.toLocaleString()}
+              </div>
+            </div>
+            <div className="flex-1 w-full">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1 block">Amount to Remit (₹)</label>
+              <input 
+                type="number" 
+                value={remitAmount}
+                onChange={e => setRemitAmount(e.target.value)}
+                placeholder="0"
+                className="w-full px-4 py-3 bg-white border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-lg font-black text-slate-800"
+              />
+            </div>
+            <button 
+              onClick={() => {
+                if (Number(remitAmount) > 0 && Number(remitAmount) <= myStaffCash && currentUser) {
+                  addCashTransfer(Number(remitAmount), currentUser.id, currentUser.name);
+                  setRemitAmount("");
+                } else {
+                  alert("Invalid amount or insufficient cash in hand.");
+                }
+              }}
+              className="w-full sm:w-auto px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all active:scale-95"
+            >
+              Request Transfer
+            </button>
+          </div>
+          {cashTransfers.filter(t => t.staffId === currentUser.id && t.status === 'pending').length > 0 && (
+            <div className="mt-4 p-3 bg-orange-100 text-orange-800 text-xs font-bold rounded-xl border border-orange-200">
+              You have pending transfer requests waiting for Admin approval.
+            </div>
+          )}
+        </div>
+      )}
+
+      {currentUser?.role === 'Admin' && (
       <div className="grid grid-cols-1 md:grid-cols-5 gap-5 text-left">
 
         {/* ── Add Staff Form ── */}
@@ -243,13 +315,33 @@ export default function StaffManagementPage() {
                       <span className="font-semibold text-slate-800 text-xs truncate">{staff.name}</span>
                     </div>
 
-                    <span className="font-mono text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md truncate w-fit">
-                      {staff.phone}
-                    </span>
+                    <div className="flex items-center gap-1.5 w-fit">
+                      <span className="font-mono text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md truncate">
+                        {staff.phone}
+                      </span>
+                      <button
+                        onClick={() => handleCopy(staff.phone || '', staff.id, 'id')}
+                        className="text-slate-400 hover:text-indigo-600 transition-colors p-1"
+                        title="Copy Staff ID"
+                      >
+                        {copiedId === staff.id && copiedField === 'id' ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                      </button>
+                    </div>
 
-                    <span className="font-mono text-xs font-bold text-slate-700 tracking-wider">
-                      {staff.password || "—"}
-                    </span>
+                    <div className="flex items-center gap-1.5 w-fit">
+                      <span className="font-mono text-xs font-bold text-slate-700 tracking-wider">
+                        {staff.password || "—"}
+                      </span>
+                      {staff.password && (
+                        <button
+                          onClick={() => handleCopy(staff.password || '', staff.id, 'password')}
+                          className="text-slate-400 hover:text-indigo-600 transition-colors p-1"
+                          title="Copy Password"
+                        >
+                          {copiedId === staff.id && copiedField === 'password' ? <Check size={12} className="text-emerald-500" /> : <Copy size={12} />}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex items-center gap-1.5 shrink-0">
@@ -286,6 +378,52 @@ export default function StaffManagementPage() {
         </div>
 
       </div>
+      )}
+
+      {/* ── Cash Remittance (Admin View) ── */}
+      {currentUser?.role === 'Admin' && (
+      <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-6 scroll-reveal">
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-800 mb-3">Staff Cash in Hand</h2>
+          {staffCashAccounts.length === 0 ? (
+            <p className="text-xs text-slate-400 italic">No staff is currently holding cash.</p>
+          ) : (
+            <div className="space-y-2">
+              {staffCashAccounts.map(acc => (
+                <div key={acc.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                  <span className="text-sm font-semibold text-slate-700">{acc.name.replace('Cash - ', '')}</span>
+                  <span className="text-sm font-black text-emerald-600">₹{acc.balance.toLocaleString()}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-800 mb-3">Pending Transfers</h2>
+          {pendingTransfers.length === 0 ? (
+            <p className="text-xs text-slate-400 italic">No pending cash transfers.</p>
+          ) : (
+            <div className="space-y-2">
+              {pendingTransfers.map(t => (
+                <div key={t.id} className="flex justify-between items-center p-3 bg-orange-50 rounded-xl border border-orange-100">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-800">{t.staffName}</p>
+                    <p className="text-xs text-orange-600 font-bold">₹{t.amount.toLocaleString()}</p>
+                  </div>
+                  <button 
+                    onClick={() => approveCashTransfer(t.id)}
+                    className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
+                  >
+                    Approve
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+      )}
+
     </div>
   );
 }

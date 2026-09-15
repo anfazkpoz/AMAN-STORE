@@ -177,7 +177,7 @@ export default function StudentLedgerPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Transaction Entry Form — Admin only */}
-        {currentUser?.role === 'Admin' && (
+        {currentUser?.role === 'Admin' && !studentDebtor.isArchived && (
         <div className="lg:col-span-1 border border-slate-200 bg-white rounded-3xl p-6 shadow-sm self-start">
           <h2 className="text-lg font-bold text-slate-800 mb-4 tracking-tight border-b border-slate-100 pb-4">Post Transaction</h2>
           

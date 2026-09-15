@@ -29,6 +29,16 @@ export interface Debtor {
   mobileNumber: string;
   batch?: Batch; // Newly added for Batch classification
   currentBalance: number;
+  isArchived?: boolean;
+}
+
+export interface CashTransfer {
+  id: string;
+  staffId: string;
+  staffName: string;
+  amount: number;
+  status: 'pending' | 'approved';
+  createdAt: number;
 }
 
 export interface JournalLine {

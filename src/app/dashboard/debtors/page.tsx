@@ -1,5 +1,5 @@
 "use client";
-import { Users, Search, Filter, Plus, ArrowDownCircle, ArrowUpCircle, X, User as UserIcon, Phone, KeyRound, CheckCircle2, Trash2, Eye, EyeOff, Pencil, MessageCircle, MoreVertical, TrendingUp, Wallet, UserPlus } from 'lucide-react';
+import { Users, Search, Filter, Plus, ArrowDownCircle, ArrowUpCircle, X, User as UserIcon, Phone, KeyRound, CheckCircle2, Trash2, Eye, EyeOff, Pencil, MessageCircle, MoreVertical, TrendingUp, Wallet, UserPlus, Archive } from 'lucide-react';
 import { useAccounting } from '@/lib/AccountingContext';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { Batch, User, Debtor } from '@/lib/types';
@@ -9,7 +9,7 @@ import { getSession } from '@/lib/auth';
 const BATCHES: Batch[] = ['JD1', 'JD2', 'JD3', 'HS1', 'HS2', 'BS1', 'BS2', 'BS3', 'BS4', 'BS5'];
 
 export default function DebtorsPage() {
-  const { debtors, accounts, addJournalEntry, deleteDebtor, updateDebtor, reloadData } = useAccounting();
+  const { accounts, journalEntries, debtors, addDebtor, updateDebtor, deleteDebtor, addJournalEntry, addAccount, reloadData } = useAccounting();
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   
@@ -64,6 +64,7 @@ export default function DebtorsPage() {
 
   const modalFilteredDebtors = useMemo(() => {
     return debtors.filter(d => {
+      if (d.isArchived) return false;
       const matchesBatch = !modalBatch || d.batch === modalBatch;
       const matchesSearch = d.name.toLowerCase().includes(modalSearch.toLowerCase()) || (d.mobileNumber || '').includes(modalSearch);
       return matchesBatch && matchesSearch;
@@ -308,14 +309,24 @@ export default function DebtorsPage() {
         ) : (
           <div className="flex flex-col gap-3">
             {filteredDebtors.map((debtor, index) => {
-              const acc = accounts.find(a => a.id === debtor.accountId);
-              const balance = acc?.balance || debtor.currentBalance || 0;
+              let liveBalance = 0;
+              if (debtor.accountId) {
+                journalEntries.forEach(entry => {
+                  entry.lines.forEach(line => {
+                    if (String(line.accountId) === String(debtor.accountId)) {
+                      if (line.type === 'Debit') liveBalance += Number(line.amount);
+                      if (line.type === 'Credit') liveBalance -= Number(line.amount);
+                    }
+                  });
+                });
+              }
+              const balance = liveBalance;
               
               return (
                 <div 
                   key={debtor.id} 
                   onClick={() => router.push(`/dashboard/debtors/${debtor.id}`)}
-                  className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 relative p-4 sm:px-6 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between group gap-3 sm:gap-0 border border-transparent hover:border-indigo-50 hover:-translate-y-0.5 scroll-reveal ${openMenuId === debtor.id ? 'z-50' : 'z-0'}`}
+                  className={`bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 relative p-4 sm:px-6 cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between group gap-3 sm:gap-0 border border-transparent hover:border-indigo-50 hover:-translate-y-0.5 scroll-reveal ${openMenuId === debtor.id ? 'z-50' : 'z-0'} ${debtor.isArchived ? 'opacity-60 grayscale' : ''}`}
                 >
                   <div className="flex items-start sm:items-center justify-between w-full">
                     <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 pr-3">
@@ -396,6 +407,15 @@ export default function DebtorsPage() {
                             )}
                             {currentUser?.role === 'Admin' && (
                               <button 
+                                onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); updateDebtor({ ...debtor, isArchived: !debtor.isArchived }); }}
+                                className="w-full text-left px-3 py-2 text-sm font-bold text-orange-600 hover:bg-orange-50 rounded-md flex items-center gap-2.5 transition-colors"
+                              >
+                                <Archive size={16} className="shrink-0" />
+                                <span>{debtor.isArchived ? 'Unarchive' : 'Archive'}</span>
+                              </button>
+                            )}
+                            {currentUser?.role === 'Admin' && (
+                              <button 
                                 onClick={(e) => { e.stopPropagation(); setOpenMenuId(null); handleDeleteDebtor(e, debtor.id, debtor.name).catch(console.error); }}
                                 className="w-full text-left px-3 py-2 text-sm font-bold text-red-600 hover:bg-red-50 rounded-md flex items-center gap-2.5 transition-colors"
                               >
@@ -429,7 +449,7 @@ export default function DebtorsPage() {
                           setEditPhone(debtor.mobileNumber);
                           setEditBatch(debtor.batch || "");
                         }}
-                        className="p-2 text-slate-300 hover:bg-slate-100 hover:text-primary rounded-full transition-colors flex"
+                        className="p-2 text-blue-500 hover:bg-blue-50 hover:text-blue-700 rounded-full transition-colors flex"
                         title="Edit Student"
                       >
                         <Pencil size={16} />
@@ -437,8 +457,17 @@ export default function DebtorsPage() {
                     )}
                     {currentUser?.role === 'Admin' && (
                       <button 
+                        onClick={(e) => { e.stopPropagation(); updateDebtor({ ...debtor, isArchived: !debtor.isArchived }); }}
+                        className="p-2 text-orange-500 hover:bg-orange-50 hover:text-orange-700 rounded-full transition-colors flex"
+                        title={debtor.isArchived ? "Unarchive" : "Archive"}
+                      >
+                        <Archive size={16} />
+                      </button>
+                    )}
+                    {currentUser?.role === 'Admin' && (
+                      <button 
                         onClick={(e) => handleDeleteDebtor(e, debtor.id, debtor.name).catch(console.error)}
-                        className="p-2 text-slate-300 hover:bg-red-50 hover:text-red-500 rounded-full transition-colors flex"
+                        className="p-2 text-red-500 hover:bg-red-50 hover:text-red-700 rounded-full transition-colors flex"
                         title="Delete Student"
                       >
                         <Trash2 size={16} />
@@ -508,10 +537,23 @@ export default function DebtorsPage() {
                       // Find Cash or Bank account dynamically by name (flexible keyword search)
                       const cashKeywords = ['cash'];
                       const bankKeywords = ['bank', 'hdfc', 'sbi', 'icici', 'axis', 'federal', 'canara', 'kotak'];
-                      const cashAcc = accounts.find(a => {
+                      let cashAcc = accounts.find(a => {
+                        if (currentUser?.role === 'Staff') {
+                          return a.name === `Cash - ${currentUser.name}`;
+                        }
                         const n = a.name?.toLowerCase() || '';
-                        return cashKeywords.some(k => n.includes(k));
+                        return cashKeywords.some(k => n.includes(k)) && !n.startsWith('cash - ');
                       });
+
+                      if (currentUser?.role === 'Staff' && !cashAcc && qaOppositeAccount === 'cash') {
+                        // Auto-create Staff Cash account if missing
+                        try {
+                          cashAcc = await addAccount({ name: `Cash - ${currentUser.name}`, type: 'Asset', balanceType: 'Debit' } as any);
+                        } catch(e) {
+                          console.error(e);
+                        }
+                      }
+
                       const bankAcc = accounts.find(a => {
                         const n = a.name?.toLowerCase() || '';
                         return bankKeywords.some(k => n.includes(k));
@@ -631,8 +673,17 @@ export default function DebtorsPage() {
                     {/* Current Balance Display */}
                     {qaStudentId && (() => {
                       const selectedStudent = debtors.find(d => d.id === qaStudentId);
-                      const selectedAcc = selectedStudent ? accounts.find(a => a.id === selectedStudent.accountId) : null;
-                      const bal = selectedAcc?.balance ?? selectedStudent?.currentBalance ?? 0;
+                      let bal = 0;
+                      if (selectedStudent?.accountId) {
+                        journalEntries.forEach(entry => {
+                          entry.lines.forEach(line => {
+                            if (String(line.accountId) === String(selectedStudent.accountId)) {
+                              if (line.type === 'Debit') bal += Number(line.amount);
+                              if (line.type === 'Credit') bal -= Number(line.amount);
+                            }
+                          });
+                        });
+                      }
                       if (!selectedStudent) return null;
                       return (
                         <div className={`flex items-center justify-between mt-2 px-3 py-2 rounded-lg border text-xs font-bold ${

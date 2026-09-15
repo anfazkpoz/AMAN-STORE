@@ -10,9 +10,11 @@ import {
 import WeeklyStatusChart from "@/components/WeeklyStatusChart";
 import Link from "next/link";
 import { useEffect, useState, useMemo } from "react";
+import { getSession } from "@/lib/auth";
 
 export default function DashboardPage() {
-  const { accounts, journalEntries } = useAccounting();
+  const { accounts, journalEntries, cashTransfers, addCashTransfer, approveCashTransfer } = useAccounting();
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [studentUsers, setStudentUsers] = useState<UserType[]>([]);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
   const [isListExpanded, setIsListExpanded] = useState(false);
@@ -54,6 +56,9 @@ export default function DashboardPage() {
       }
     };
     fetchStudents();
+
+    const user = getSession();
+    if (user) setCurrentUser(user);
   }, []);
 
   // Fetch registration toggle state
@@ -143,12 +148,18 @@ export default function DashboardPage() {
   const cashInHand = accounts.find(a => a.id === '1')?.balance || 0;
   const bankBalance = accounts.find(a => a.id === '2')?.balance || 0;
   const totalAssets = accounts
-    .filter(a => a.type === 'Asset' && !['1', '2'].includes(a.id) && a.balance > 0)
+    .filter(a => a.type === 'Asset' && !['1', '2'].includes(a.id) && !a.name.startsWith('Cash -') && a.balance > 0)
     .reduce((sum, a) => sum + a.balance, 0);
 
   const totalLiabilities = accounts
-    .filter(a => a.type === 'Asset' && !['1', '2'].includes(a.id) && a.balance < 0)
+    .filter(a => a.type === 'Asset' && !['1', '2'].includes(a.id) && !a.name.startsWith('Cash -') && a.balance < 0)
     .reduce((sum, a) => sum + Math.abs(a.balance), 0);
+
+  const staffCashAccounts = accounts.filter(a => a.name.startsWith('Cash - ') && a.balance > 0);
+  const myStaffCash = accounts.find(a => a.name === `Cash - ${currentUser?.name}`)?.balance || 0;
+  
+  const [remitAmount, setRemitAmount] = useState("");
+  const pendingTransfers = cashTransfers.filter(t => t.status === 'pending');
 
   const stats = [
     {
@@ -322,6 +333,93 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* Cash Remittance Section */}
+      {currentUser?.role === 'Staff' && (
+        <div className="mb-8 p-6 bg-indigo-50 border border-indigo-100 rounded-2xl scroll-reveal">
+          <h2 className="text-lg font-bold text-indigo-900 mb-1">Staff Cash Remittance</h2>
+          <p className="text-xs text-indigo-700 mb-4">Transfer your cash in hand to the Main Admin.</p>
+          <div className="flex flex-col sm:flex-row gap-4 items-end">
+            <div className="flex-1 w-full">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1 block">Cash in Hand</label>
+              <div className="px-4 py-3 bg-white border border-indigo-200 rounded-xl text-lg font-black text-indigo-800">
+                ₹{myStaffCash.toLocaleString()}
+              </div>
+            </div>
+            <div className="flex-1 w-full">
+              <label className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 mb-1 block">Amount to Remit (₹)</label>
+              <input 
+                type="number" 
+                value={remitAmount}
+                onChange={e => setRemitAmount(e.target.value)}
+                placeholder="0"
+                className="w-full px-4 py-3 bg-white border border-indigo-200 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none text-lg font-black text-slate-800"
+              />
+            </div>
+            <button 
+              onClick={() => {
+                if (Number(remitAmount) > 0 && Number(remitAmount) <= myStaffCash) {
+                  addCashTransfer(Number(remitAmount), currentUser.id, currentUser.name);
+                  setRemitAmount("");
+                } else {
+                  alert("Invalid amount or insufficient cash in hand.");
+                }
+              }}
+              className="w-full sm:w-auto px-6 py-3.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold transition-all active:scale-95"
+            >
+              Request Transfer
+            </button>
+          </div>
+          {cashTransfers.filter(t => t.staffId === currentUser.id && t.status === 'pending').length > 0 && (
+            <div className="mt-4 p-3 bg-orange-100 text-orange-800 text-xs font-bold rounded-xl border border-orange-200">
+              You have pending transfer requests waiting for Admin approval.
+            </div>
+          )}
+        </div>
+      )}
+
+      {currentUser?.role === 'Admin' && (
+        <div className="mb-8 grid grid-cols-1 sm:grid-cols-2 gap-6 scroll-reveal">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <h2 className="text-sm font-bold text-slate-800 mb-3">Staff Cash in Hand</h2>
+            {staffCashAccounts.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">No staff is currently holding cash.</p>
+            ) : (
+              <div className="space-y-2">
+                {staffCashAccounts.map(acc => (
+                  <div key={acc.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                    <span className="text-sm font-semibold text-slate-700">{acc.name.replace('Cash - ', '')}</span>
+                    <span className="text-sm font-black text-emerald-600">₹{acc.balance.toLocaleString()}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+            <h2 className="text-sm font-bold text-slate-800 mb-3">Pending Transfers</h2>
+            {pendingTransfers.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">No pending cash transfers.</p>
+            ) : (
+              <div className="space-y-2">
+                {pendingTransfers.map(t => (
+                  <div key={t.id} className="flex justify-between items-center p-3 bg-orange-50 rounded-xl border border-orange-100">
+                    <div>
+                      <p className="text-sm font-semibold text-slate-800">{t.staffName}</p>
+                      <p className="text-xs text-orange-600 font-bold">₹{t.amount.toLocaleString()}</p>
+                    </div>
+                    <button 
+                      onClick={() => approveCashTransfer(t.id)}
+                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
+                    >
+                      Approve
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Divider */}
       <div className="my-8 border-t border-slate-100" />

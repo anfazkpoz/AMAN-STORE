@@ -27,17 +27,17 @@ export default function AuthPage() {
   const router = useRouter();
   const { reloadData } = useAccounting();
 
-  // Auto-login: if a valid persistent session exists, skip the login screen
+  // If AuthPage mounts, the server middleware has already determined there is no valid session cookie.
+  // We must clear any stale local storage and show the login form to prevent infinite loops.
   useEffect(() => {
-    const existing = getSession();
-    if (existing) {
-      if (existing.role === 'Admin') router.replace("/dashboard");
-      else if (existing.role === 'Staff') router.replace("/dashboard/debtors");
-      else router.replace("/profile");
-    } else {
-      setIsCheckingAuth(false);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("aman_store_current_user");
+      localStorage.removeItem("aman_store_session_expiry");
+      sessionStorage.removeItem("aman_store_current_user");
+      document.cookie = "aman_store_session=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax";
     }
-  }, [router]);
+    setIsCheckingAuth(false);
+  }, []);
 
   // Fetch registration toggle
   useEffect(() => {
@@ -137,9 +137,9 @@ export default function AuthPage() {
         // Save persistent 30-day session
         saveSession(user);
         
-        if (user.role === 'Admin') router.replace("/dashboard");
-        else if (user.role === 'Staff') router.replace("/dashboard/debtors");
-        else router.replace("/profile");
+        if (user.role === 'Admin') window.location.href = "/dashboard";
+        else if (user.role === 'Staff') window.location.href = "/dashboard/debtors";
+        else window.location.href = "/profile";
       }
     } catch (err: any) {
       setError(err.message || "An unexpected error occurred.");
