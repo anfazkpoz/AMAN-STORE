@@ -41,9 +41,17 @@ export default function StudentLedgerPage() {
 
   const studentTransactions = journalEntries.filter(entry => 
     entry.lines.some(line => line.accountId === studentAccount.id)
-  ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-  const currentBalance = studentAccount.balance;
+  const currentBalance = studentTransactions.reduce((acc, entry) => {
+    const line = entry.lines.find((l: any) => l.accountId === studentAccount.id);
+    if (!line) return acc;
+    if (line.type === 'Debit') {
+      return acc + (studentAccount.balanceType === 'Debit' ? line.amount : -line.amount);
+    } else {
+      return acc + (studentAccount.balanceType === 'Debit' ? -line.amount : line.amount);
+    }
+  }, 0);
 
   const handlePostTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -279,9 +287,20 @@ export default function StudentLedgerPage() {
                 const isCredit = line.type === 'Credit'; 
                 
                 return (
-                  <div key={entry.id} className="p-5 hover:bg-slate-50 transition-colors flex items-center justify-between group">
+                  <div 
+                    key={entry.id} 
+                    onClick={() => router.push(`/dashboard/journal?highlightId=${entry.id}`)}
+                    className="p-5 hover:bg-slate-50 transition-colors flex items-center justify-between group cursor-pointer"
+                  >
                     <div>
-                      <p className="font-bold text-slate-800 text-sm group-hover:text-indigo-600 transition-colors">{entry.narration || "Entry"}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-slate-800 text-sm group-hover:text-indigo-600 transition-colors">{entry.narration || "Entry"}</p>
+                        {entry.lf && (
+                          <span className="text-xs font-mono bg-indigo-50 px-2 py-1 rounded text-indigo-500 font-bold">
+                            BN: {entry.lf}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 mt-1">
                         <p className="text-xs text-slate-400 font-medium">{formatDate(entry.date)}</p>
                         {currentUser?.role === 'Admin' && entry.createdBy && (

@@ -76,85 +76,111 @@ export default function ReportsPage() {
     return { startDate, endDate, label: `${startDate} TO ${endDate}` };
   })();
 
-  // Compute Trial Balance — use liveBalance instead of stored Account.balance
-  const regularAccounts: any[] = [];
-  let sundryDebtorsTotal = 0;
-  let sundryCreditorsTotal = 0;
+  const reportData = useMemo(() => {
+    const regularAccounts: any[] = [];
+    let sundryDebtorsTotal = 0;
+    let sundryCreditorsTotal = 0;
 
-  accounts.forEach(a => {
-    const isDebtorAccount = debtors.some(d => d.accountId === a.id);
+    accounts.forEach(a => {
+      const isDebtorAccount = debtors.some(d => d.accountId === a.id);
 
-    if (isDebtorAccount) {
-      // Student accounts are tracked via Debtor model; use stored balance for
-      // the Sundry Debtors/Creditors roll-up (consistent with the debtors page)
-      if (a.balance > 0) sundryDebtorsTotal += a.balance;
-      else if (a.balance < 0) sundryCreditorsTotal += Math.abs(a.balance);
-      return;
+      if (isDebtorAccount) {
+        if (a.balance > 0) sundryDebtorsTotal += a.balance;
+        else if (a.balance < 0) sundryCreditorsTotal += Math.abs(a.balance);
+        return;
+      }
+
+      const liveBal = liveBalanceMap[a.id] ?? 0;
+      if (liveBal === 0) return;
+
+      let dr = 0;
+      let cr = 0;
+      if (liveBal >= 0) {
+        if (a.balanceType === 'Debit') dr = liveBal;
+        else cr = liveBal;
+      } else {
+        if (a.balanceType === 'Debit') cr = Math.abs(liveBal);
+        else dr = Math.abs(liveBal);
+      }
+
+      regularAccounts.push({ ...a, balance: liveBal, dr, cr });
+    });
+
+    const trialBalance = [...regularAccounts];
+    
+    if (sundryDebtorsTotal > 0) {
+      trialBalance.push({ 
+        id: 'sundry_debtors', 
+        name: 'Sundry Debtors (Student Dues)', 
+        type: 'Asset', 
+        balanceType: 'Debit', 
+        balance: sundryDebtorsTotal,
+        dr: sundryDebtorsTotal, 
+        cr: 0 
+      } as any);
     }
 
-    // For all non-debtor accounts: use live balance aggregated from journal lines
-    const liveBal = liveBalanceMap[a.id] ?? 0;
-    if (liveBal === 0) return; // Skip accounts with no activity
-
-    let dr = 0;
-    let cr = 0;
-    if (liveBal >= 0) {
-      if (a.balanceType === 'Debit') dr = liveBal;
-      else cr = liveBal;
-    } else {
-      if (a.balanceType === 'Debit') cr = Math.abs(liveBal);
-      else dr = Math.abs(liveBal);
+    if (sundryCreditorsTotal > 0) {
+      trialBalance.push({ 
+        id: 'sundry_creditors', 
+        name: 'Sundry Creditors (Student Advances)', 
+        type: 'Liability', 
+        balanceType: 'Credit', 
+        balance: sundryCreditorsTotal,
+        dr: 0, 
+        cr: sundryCreditorsTotal 
+      } as any);
     }
 
-    regularAccounts.push({ ...a, balance: liveBal, dr, cr });
-  });
+    const totalDr = trialBalance.reduce((sum, a) => sum + a.dr, 0);
+    const totalCr = trialBalance.reduce((sum, a) => sum + a.cr, 0);
 
-  const trialBalance = [...regularAccounts];
-  
-  if (sundryDebtorsTotal > 0) {
-    trialBalance.push({ 
-      id: 'sundry_debtors', 
-      name: 'Sundry Debtors (Student Dues)', 
-      type: 'Asset', 
-      balanceType: 'Debit', 
-      balance: sundryDebtorsTotal,
-      dr: sundryDebtorsTotal, 
-      cr: 0 
-    } as any);
-  }
+    const revenues = trialBalance.filter(a => a.type === 'Revenue');
+    const expenses = trialBalance.filter(a => a.type === 'Expense');
+    const totalRev = revenues.reduce((sum, a) => sum + a.cr - a.dr, 0);
+    const totalExp = expenses.reduce((sum, a) => sum + a.dr - a.cr, 0);
+    const netProfit = totalRev - totalExp;
 
-  if (sundryCreditorsTotal > 0) {
-    trialBalance.push({ 
-      id: 'sundry_creditors', 
-      name: 'Sundry Creditors (Student Advances)', 
-      type: 'Liability', 
-      balanceType: 'Credit', 
-      balance: sundryCreditorsTotal, // We can store magnitude here
-      dr: 0, 
-      cr: sundryCreditorsTotal 
-    } as any);
-  }
+    const assets = trialBalance.filter(a => a.type === 'Asset');
+    const liabilities = trialBalance.filter(a => a.type === 'Liability');
+    const equity = trialBalance.filter(a => a.type === 'Equity');
 
-  const totalDr = trialBalance.reduce((sum, a) => sum + a.dr, 0);
-  const totalCr = trialBalance.reduce((sum, a) => sum + a.cr, 0);
+    const totalAssets = assets.reduce((sum, a) => sum + a.dr - a.cr, 0);
+    const totalLiab = liabilities.reduce((sum, a) => sum + a.cr - a.dr, 0);
+    const totalEquity = equity.reduce((sum, a) => sum + a.cr - a.dr, 0);
 
-  // Compute P&L
-  const revenues = trialBalance.filter(a => a.type === 'Revenue');
-  const expenses = trialBalance.filter(a => a.type === 'Expense');
-  const totalRev = revenues.reduce((sum, a) => sum + a.cr - a.dr, 0);
-  const totalExp = expenses.reduce((sum, a) => sum + a.dr - a.cr, 0);
-  const netProfit = totalRev - totalExp;
+    const totalLiabAndEquity = totalLiab + totalEquity + netProfit;
 
-  // Compute Balance Sheet
-  const assets = trialBalance.filter(a => a.type === 'Asset');
-  const liabilities = trialBalance.filter(a => a.type === 'Liability');
-  const equity = trialBalance.filter(a => a.type === 'Equity');
+    return {
+      trialBalance,
+      totalDr,
+      totalCr,
+      revenues,
+      expenses,
+      netProfit,
+      assets,
+      liabilities,
+      equity,
+      totalAssets,
+      totalLiabAndEquity,
+      totalExp,
+    };
+  }, [accounts, debtors, liveBalanceMap]);
 
-  const totalAssets = assets.reduce((sum, a) => sum + a.dr - a.cr, 0);
-  const totalLiab = liabilities.reduce((sum, a) => sum + a.cr - a.dr, 0);
-  const totalEquity = equity.reduce((sum, a) => sum + a.cr - a.dr, 0);
-
-  const totalLiabAndEquity = totalLiab + totalEquity + netProfit;
+  const {
+    trialBalance,
+    totalDr,
+    totalCr,
+    revenues,
+    expenses,
+    netProfit,
+    assets,
+    liabilities,
+    equity,
+    totalAssets,
+    totalLiabAndEquity,
+    totalExp,
+  } = reportData;
 
   const handleDownloadReport = useCallback(() => {
     const today = getTodayFormatted();
@@ -673,20 +699,23 @@ export default function ReportsPage() {
             {/* ── Body ── */}
             <div className="p-0 sm:p-6 print:p-2">
               {(() => {
-                const filteredDebtors = debtors
-                  .filter(student => {
-                    const acc = accounts.find(a => a.id === student.accountId);
-                    const bal = acc?.balance || 0;
-                    if (bal <= 0) return false;
-                    if (!allBatchesSelected && !selectedBatches.has(student.batch || '')) return false;
-                    return true;
-                  })
-                  .sort(sortByBatch);
+                const { filteredDebtors, totalDues } = useMemo(() => {
+                  const filtered = debtors
+                    .filter(student => {
+                      const acc = accounts.find(a => a.id === student.accountId);
+                      const bal = acc?.balance || 0;
+                      if (bal <= 0) return false;
+                      if (!allBatchesSelected && !selectedBatches.has(student.batch || '')) return false;
+                      return true;
+                    })
+                    .sort(sortByBatch);
 
-                const totalDues = filteredDebtors.reduce((sum, student) => {
-                  const acc = accounts.find(a => a.id === student.accountId);
-                  return sum + (acc?.balance || 0);
-                }, 0);
+                  const dues = filtered.reduce((sum, student) => {
+                    const acc = accounts.find(a => a.id === student.accountId);
+                    return sum + (acc?.balance || 0);
+                  }, 0);
+                  return { filteredDebtors: filtered, totalDues: dues };
+                }, [debtors, accounts, allBatchesSelected, selectedBatches]);
 
                 if (filteredDebtors.length === 0) {
                   return (

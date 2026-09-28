@@ -6,7 +6,7 @@ import { Plus, ArrowRight, FileText, Trash2, Pencil, Search } from 'lucide-react
 import Link from 'next/link';
 import { useState, useEffect } from 'react';
 import { User } from '@/lib/types';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { getSession } from '@/lib/auth';
 
 export default function JournalListPage() {
@@ -15,6 +15,19 @@ export default function JournalListPage() {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [search, setSearch] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const highlightId = searchParams.get('highlightId');
+
+  useEffect(() => {
+    if (highlightId) {
+      setTimeout(() => {
+        const el = document.getElementById(`entry-${highlightId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }, 100);
+    }
+  }, [highlightId, journalEntries]);
 
   useEffect(() => {
     const u = getSession();
@@ -35,12 +48,12 @@ export default function JournalListPage() {
 
   return (
     <div className="p-4 sm:p-8 max-w-3xl mx-auto pb-24">
-      <div className="flex items-center justify-between mb-8 pt-4 scroll-reveal">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">Journal</h1>
-          <p className="text-sm text-slate-500">Record and view all transactions</p>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pt-4 scroll-reveal w-full">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground break-words">Journal</h1>
+          <p className="text-sm text-slate-500 break-words">Record and view all transactions</p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <div className="relative hidden sm:block">
             <Search size={16} className="absolute left-3 top-2.5 text-slate-400" />
             <input 
@@ -48,7 +61,7 @@ export default function JournalListPage() {
               placeholder="Search journal..." 
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-sm transition-all w-64"
+              className="pl-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-primary outline-none text-sm transition-all w-full sm:w-64"
             />
           </div>
           <Link 
@@ -90,29 +103,32 @@ export default function JournalListPage() {
           filteredAndSortedEntries.map((entry) => (
             <div
               key={entry.id}
-              className={`bg-white rounded-3xl p-6 shadow-sm border transition-all group scroll-reveal ${
-                confirmDeleteId === entry.id
-                  ? 'border-red-300 shadow-red-100 shadow-md bg-red-50/40'
-                  : 'border-slate-200 hover:shadow-md'
+              id={`entry-${entry.id}`}
+              className={`bg-white rounded-3xl p-6 border transition-all group scroll-reveal ${
+                highlightId === entry.id
+                  ? 'border-indigo-400 shadow-indigo-100 shadow-lg ring-4 ring-indigo-50 bg-indigo-50/20'
+                  : confirmDeleteId === entry.id
+                    ? 'border-red-300 shadow-red-100 shadow-md bg-red-50/40'
+                    : 'border-slate-200 shadow-sm hover:shadow-md'
               }`}
             >
-              <div className="flex justify-between items-start mb-4">
-                <div>
-                  <div className="flex items-center gap-2 mb-1">
+              <div className="flex flex-wrap justify-between items-start gap-3 mb-4">
+                <div className="min-w-0 flex-1 pr-2">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
                     <div className="text-xs font-bold text-slate-400 uppercase tracking-widest">{formatDate(entry.date)}</div>
                     {currentUser?.role === 'Admin' && entry.createdBy && (
-                      <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded">
+                      <span className="text-[9px] font-bold uppercase tracking-widest text-indigo-500 bg-indigo-50 px-1.5 py-0.5 rounded whitespace-nowrap">
                         By {entry.createdBy}
                       </span>
                     )}
                   </div>
-                  <div className="font-semibold text-slate-800 text-sm">{entry.narration}</div>
+                  <div className="font-semibold text-slate-800 text-sm break-words">{entry.narration}</div>
                 </div>
 
                 {/* Right side: LF badge + delete controls */}
-                <div className="flex items-center gap-2 flex-shrink-0 ml-4">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   {entry.lf && (
-                    <div className="text-xs font-mono bg-indigo-50 px-2 py-1 rounded text-indigo-500 font-bold">
+                    <div className="text-[10px] md:text-xs font-mono bg-indigo-50 px-1.5 py-0.5 rounded text-indigo-500 font-bold whitespace-nowrap">
                       BN: {entry.lf}
                     </div>
                   )}
@@ -133,6 +149,7 @@ export default function JournalListPage() {
                         onClick={() => setConfirmDeleteId(null)}
                         className="text-xs font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-colors"
                       >
+                        No
                       </button>
                     </div>
                   ) : (
@@ -140,14 +157,14 @@ export default function JournalListPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => router.push(`/dashboard/journal/new?edit=${entry.id}`)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl"
+                        className="p-2 text-slate-400 hover:text-primary hover:bg-primary/10 rounded-xl transition-colors"
                         title="Edit journal entry"
                       >
                         <Pencil size={15} />
                       </button>
                       <button
                         onClick={() => setConfirmDeleteId(entry.id)}
-                        className="opacity-0 group-hover:opacity-100 transition-opacity p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl"
+                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors"
                         title="Delete journal entry"
                       >
                         <Trash2 size={15} />
@@ -158,8 +175,8 @@ export default function JournalListPage() {
                 </div>
               </div>
               
-              <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100">
-                <table className="w-full text-sm">
+              <div className="bg-slate-50/50 rounded-2xl p-4 border border-slate-100 overflow-x-auto w-full">
+                <table className="w-full text-sm min-w-[300px]">
                   <thead>
                     <tr className="text-left text-xs text-slate-400 uppercase tracking-wider">
                       <th className="pb-2 font-semibold">Account Head</th>

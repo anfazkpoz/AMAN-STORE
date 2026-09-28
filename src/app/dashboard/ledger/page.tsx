@@ -5,8 +5,10 @@ import { formatDate } from '@/lib/formatDate';
 import { Library, ArrowLeft, Trash2, Search } from 'lucide-react';
 import React, { useState, useEffect } from 'react';
 import { getSession } from '@/lib/auth';
+import { useRouter } from 'next/navigation';
 
 export default function LedgerPage() {
+  const router = useRouter();
   const { accounts, journalEntries, deleteJournalEntry, deleteAccount } = useAccounting();
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -55,6 +57,7 @@ export default function LedgerPage() {
             date: formatDate(entry.date),
             particulars: prefix + particulars,
             narration: entry.narration,
+            noteNumber: entry.noteNumber,
             lf: entry.lf,
             type: accLine.type,
             amount: accLine.amount
@@ -87,11 +90,35 @@ export default function LedgerPage() {
     });
   }, [accounts, search]);
 
+  const calculatedBalances = React.useMemo(() => {
+    const balances: Record<string, number> = {};
+    const accMap: Record<string, any> = {};
+    
+    accounts.forEach(a => {
+      balances[a.id] = 0;
+      accMap[a.id] = a;
+    });
+
+    journalEntries.forEach((entry: any) => {
+      entry.lines.forEach((line: any) => {
+        const acc = accMap[line.accountId];
+        if (acc) {
+          if (line.type === 'Debit') {
+            balances[line.accountId] += (acc.balanceType === 'Debit' ? line.amount : -line.amount);
+          } else {
+            balances[line.accountId] += (acc.balanceType === 'Debit' ? -line.amount : line.amount);
+          }
+        }
+      });
+    });
+    return balances;
+  }, [journalEntries, accounts]);
+
   return (
     <div className="p-4 sm:p-8 max-w-5xl mx-auto pb-24">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pt-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pt-4 w-full">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold tracking-tight text-foreground flex items-center gap-2 break-words">
             {!selectedAccountId ? (
               <Library size={24} className="text-primary" />
             ) : (
@@ -104,7 +131,7 @@ export default function LedgerPage() {
             )}
             {!selectedAccountId ? 'General Ledger' : 'Account Statement'}
           </h1>
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-500 break-words mt-1">
             {!selectedAccountId ? 'Select an account to view its statement' : 'View full chronological transactions'}
           </p>
         </div>
@@ -142,11 +169,12 @@ export default function LedgerPage() {
       {!selectedAccountId ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 scroll-reveal scroll-stagger">
           {filteredAccounts.map(acc => {
-            const isAbnormal = acc.balance < 0;
+            const liveBalance = calculatedBalances[acc.id] || 0;
+            const isAbnormal = liveBalance < 0;
             const sign = isAbnormal 
               ? (acc.balanceType === 'Debit' ? 'Cr' : 'Dr')
               : (acc.balanceType === 'Debit' ? 'Dr' : 'Cr');
-            const absBal = Math.abs(acc.balance);
+            const absBal = Math.abs(liveBalance);
             const isProtected = PROTECTED_IDS.includes(acc.id);
             const isConfirming = confirmDeleteAccountId === acc.id;
 
@@ -238,16 +266,16 @@ export default function LedgerPage() {
             </div>
             
             <div className={`px-5 py-3 rounded-2xl border flex flex-col items-end ${
-              (transactions[transactions.length - 1]?.balance || 0) >= 0 
+              (calculatedBalances[selectedAccountId] || 0) >= 0 
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
                 : 'bg-red-50 border-red-200 text-red-800'
             }`}>
               <span className="text-xs font-bold uppercase tracking-wider mb-1 opacity-80">Closing Balance</span>
               <span className="text-xl font-mono font-bold tracking-tight">
-                ₹{Math.abs(transactions[transactions.length - 1]?.balance || 0).toFixed(2)}
+                ₹{Math.abs(calculatedBalances[selectedAccountId] || 0).toFixed(2)}
                 <span className="text-base ml-1 opacity-80">
                   {transactions.length > 0 
-                    ? ((transactions[transactions.length - 1].balance >= 0) ? (selectedAccount?.balanceType === 'Debit' ? 'Dr' : 'Cr') : (selectedAccount?.balanceType === 'Debit' ? 'Cr' : 'Dr'))
+                    ? (((calculatedBalances[selectedAccountId] || 0) >= 0) ? (selectedAccount?.balanceType === 'Debit' ? 'Dr' : 'Cr') : (selectedAccount?.balanceType === 'Debit' ? 'Cr' : 'Dr'))
                     : ''}
                 </span>
               </span>
@@ -273,10 +301,21 @@ export default function LedgerPage() {
                   </tr>
                 ) : (
                   transactions.map((t, index) => (
-                    <tr key={index} className={`hover:bg-slate-50/50 transition-colors group ${confirmDeleteId === t.entryId ? 'bg-red-50/60' : ''}`}>
+                    <tr 
+                      key={index} 
+                      onClick={() => router.push(`/dashboard/journal?highlightId=${t.entryId}`)}
+                      className={`hover:bg-slate-50/50 transition-colors group cursor-pointer ${confirmDeleteId === t.entryId ? 'bg-red-50/60' : ''}`}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-xs font-bold text-slate-400 font-mono tracking-wider">{t.date}</td>
                       <td className="px-6 py-4">
-                        <div className="font-semibold text-slate-800">{t.particulars}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-800">{t.particulars}</span>
+                          {t.lf && (
+                            <span className="text-xs font-mono bg-indigo-50 px-2 py-1 rounded text-indigo-500 font-bold">
+                              BN: {t.lf}
+                            </span>
+                          )}
+                        </div>
                         <div className="text-xs text-slate-500 mt-1 max-w-xs truncate" title={t.narration}>{t.narration}</div>
                       </td>
                       <td className="px-6 py-4 text-right font-mono text-indigo-700">
@@ -297,7 +336,8 @@ export default function LedgerPage() {
                         {confirmDeleteId === t.entryId ? (
                           <div className="flex items-center gap-1 justify-center">
                             <button
-                              onClick={() => {
+                              onClick={(e) => {
+                                e.stopPropagation();
                                 deleteJournalEntry(t.entryId);
                                 setConfirmDeleteId(null);
                               }}
@@ -306,7 +346,10 @@ export default function LedgerPage() {
                               Yes
                             </button>
                             <button
-                              onClick={() => setConfirmDeleteId(null)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setConfirmDeleteId(null);
+                              }}
                               className="text-[10px] font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 px-2 py-1 rounded-lg transition-colors"
                             >
                               No
@@ -314,7 +357,10 @@ export default function LedgerPage() {
                           </div>
                         ) : (
                           <button
-                            onClick={() => setConfirmDeleteId(t.entryId)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setConfirmDeleteId(t.entryId);
+                            }}
                             className="opacity-0 group-hover:opacity-100 transition-opacity p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg"
                             title="Delete this journal entry"
                           >

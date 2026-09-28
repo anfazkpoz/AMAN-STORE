@@ -4,6 +4,7 @@ import Account from "@/models/Account";
 import Debtor from "@/models/Debtor";
 import AppSettings from "@/models/AppSettings";
 import { NextResponse } from "next/server";
+import bcrypt from "bcryptjs";
 
 export const dynamic = "force-dynamic";
 
@@ -152,11 +153,16 @@ export async function POST(req: Request) {
       debtorId = newDebtor._id;
     }
 
+    let finalPassword = password;
+    if (password) {
+      finalPassword = await bcrypt.hash(password, 10);
+    }
+
     const newUser = await User.create({
       name,
       phone,
       mobile,
-      password,
+      password: finalPassword,
       role,
       batch,
       debtorId,
@@ -177,6 +183,10 @@ export async function PUT(req: Request) {
     const user = await User.findById(id);
     if (!user) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
+    }
+
+    if (updateData.password) {
+      updateData.password = await bcrypt.hash(updateData.password, 10);
     }
 
     // Sync student related changes if name/batch/phone changes

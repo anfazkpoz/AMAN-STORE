@@ -76,7 +76,7 @@ export default function DashboardLayout({
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 relative print:bg-white">
+    <div className="flex min-h-screen bg-slate-50 relative print:bg-white w-full max-w-full overflow-x-hidden">
       {/* Desktop Sidebar (Left) */}
       <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-100 z-50 sticky top-0 h-screen print:hidden shadow-[4px_0_10px_rgba(0,0,0,0.03)]">
         <div className="p-6 border-b border-slate-50 flex items-center gap-3">
@@ -122,15 +122,15 @@ export default function DashboardLayout({
         </div>
       </aside>
 
-      <div className="flex-1 flex flex-col min-h-screen w-full">
+      <div className="w-full md:flex-1 flex flex-col min-h-screen overflow-x-hidden">
         {/* Mobile Top Header (Header text only on desktop, full branding on mobile) */}
         <header className="bg-white border-b border-slate-100 px-5 h-16 flex justify-between items-center sticky top-0 z-40 print:hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
-          <div className="flex md:hidden items-center gap-3">
+          <div className="flex md:hidden items-center gap-3 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center shrink-0">
               <span className="text-white font-black text-xs tracking-tight">AS</span>
             </div>
-            <div>
-              <p className="text-sm font-bold text-slate-800 leading-none uppercase tracking-tight">AMAN STORE</p>
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-slate-800 leading-none uppercase tracking-tight truncate">AMAN STORE</p>
             </div>
           </div>
           

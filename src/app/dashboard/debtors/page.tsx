@@ -248,6 +248,23 @@ export default function DebtorsPage() {
     }
   };
 
+  const calculatedDebtors = useMemo(() => {
+    return filteredDebtors.map(debtor => {
+      let liveBalance = 0;
+      if (debtor.accountId) {
+        journalEntries.forEach(entry => {
+          entry.lines.forEach(line => {
+            if (String(line.accountId) === String(debtor.accountId)) {
+              if (line.type === 'Debit') liveBalance += Number(line.amount);
+              if (line.type === 'Credit') liveBalance -= Number(line.amount);
+            }
+          });
+        });
+      }
+      return { ...debtor, liveBalance };
+    });
+  }, [filteredDebtors, journalEntries]);
+
   return (
     <div className="p-0 max-w-4xl mx-auto pb-44 sm:pb-32 relative min-h-screen">
 
@@ -298,7 +315,7 @@ export default function DebtorsPage() {
       <div className="px-4 sm:px-8 mt-6">
 
       <div className="text-left mb-8">
-        {filteredDebtors.length === 0 ? (
+        {calculatedDebtors.length === 0 ? (
           <div className="p-12 text-center flex flex-col items-center bg-white border border-slate-200 rounded-2xl shadow-sm">
             <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-3">
               <Users size={28} className="text-slate-400" />
@@ -308,19 +325,8 @@ export default function DebtorsPage() {
           </div>
         ) : (
           <div className="flex flex-col gap-3">
-            {filteredDebtors.map((debtor, index) => {
-              let liveBalance = 0;
-              if (debtor.accountId) {
-                journalEntries.forEach(entry => {
-                  entry.lines.forEach(line => {
-                    if (String(line.accountId) === String(debtor.accountId)) {
-                      if (line.type === 'Debit') liveBalance += Number(line.amount);
-                      if (line.type === 'Credit') liveBalance -= Number(line.amount);
-                    }
-                  });
-                });
-              }
-              const balance = liveBalance;
+            {calculatedDebtors.map((debtor, index) => {
+              const balance = debtor.liveBalance;
               
               return (
                 <div 

@@ -13,7 +13,7 @@ import { useEffect, useState, useMemo } from "react";
 import { getSession } from "@/lib/auth";
 
 export default function DashboardPage() {
-  const { accounts, journalEntries, cashTransfers, addCashTransfer, approveCashTransfer } = useAccounting();
+  const { accounts, journalEntries, cashTransfers, addCashTransfer, approveCashTransfer, debtors } = useAccounting();
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [studentUsers, setStudentUsers] = useState<UserType[]>([]);
   const [showPasswords, setShowPasswords] = useState<Record<string, boolean>>({});
@@ -59,7 +59,7 @@ export default function DashboardPage() {
 
     const user = getSession();
     if (user) setCurrentUser(user);
-  }, []);
+  }, [debtors]);
 
   // Fetch registration toggle state
   useEffect(() => {

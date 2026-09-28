@@ -44,6 +44,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-scroll-behavior="smooth"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <head>
@@ -53,7 +54,7 @@ export default function RootLayout({
         <meta name="apple-mobile-web-app-title" content="Aman Store" />
         <link rel="apple-touch-icon" href="/icons/icon-192x192.png" />
       </head>
-      <body className="min-h-full flex flex-col bg-gradient-to-br from-indigo-50 via-white to-purple-50 bg-fixed">
+      <body className="min-h-full flex flex-col bg-gradient-to-br from-indigo-50 via-white to-purple-50 bg-fixed w-full max-w-full overflow-x-hidden">
         <ServiceWorkerRegistrar />
         <ScrollAnimationObserver />
         <AccountingProvider>{children}</AccountingProvider>

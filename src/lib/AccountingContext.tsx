@@ -2,7 +2,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { Account, JournalEntry, Debtor } from './types';
 
 interface AccountingState {
@@ -33,7 +33,7 @@ export function AccountingProvider({ children }: { children: React.ReactNode }) 
   const [cashTransfers, setCashTransfers] = useState<any[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
 
-  const reloadData = async () => {
+  const reloadData = useCallback(async () => {
     if (typeof window !== "undefined" && (window.location.pathname === "/" || window.location.pathname.startsWith("/login"))) {
        setIsLoaded(true);
        return;
@@ -93,11 +93,11 @@ export function AccountingProvider({ children }: { children: React.ReactNode }) 
     } catch (error) {
       console.error("Failed to reload data:", error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     reloadData();
-  }, []);
+  }, [reloadData]);
 
   const addJournalEntry = async (entry: Omit<JournalEntry, 'id' | 'createdAt'>) => {
     try {

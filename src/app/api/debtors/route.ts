@@ -59,15 +59,18 @@ export async function PUT(req: Request) {
     }
 
     if ((updateData.name && updateData.name !== debtor.name) || 
-        (updateData.batch && updateData.batch !== debtor.batch)) {
+        (updateData.batch && updateData.batch !== debtor.batch) ||
+        (updateData.mobileNumber && updateData.mobileNumber !== debtor.mobileNumber)) {
         try {
           const User = (await import("@/models/User")).default;
+          const uUpdate: any = {};
+          if (updateData.name) uUpdate.name = updateData.name;
+          if (updateData.batch) uUpdate.batch = updateData.batch;
+          if (updateData.mobileNumber) uUpdate.phone = updateData.mobileNumber;
+
           await User.findOneAndUpdate(
             { debtorId: id },
-            { 
-              name: updateData.name || debtor.name, 
-              batch: updateData.batch || debtor.batch 
-            }
+            { $set: uUpdate }
           );
         } catch (uErr) {
           console.error("Failed to sync user record:", uErr);
