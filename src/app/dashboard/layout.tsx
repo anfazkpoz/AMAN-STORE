@@ -76,9 +76,9 @@ export default function DashboardLayout({
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50 relative print:bg-white w-full max-w-full overflow-x-hidden">
+    <div className="flex h-screen bg-slate-50 relative print:bg-white w-full max-w-full overflow-hidden">
       {/* Desktop Sidebar (Left) */}
-      <aside className="hidden md:flex flex-col w-64 bg-white border-r border-slate-100 z-50 sticky top-0 h-screen print:hidden shadow-[4px_0_10px_rgba(0,0,0,0.03)]">
+      <aside className="hidden md:flex flex-col shrink-0 w-64 bg-white border-r border-slate-100 z-50 h-screen print:hidden shadow-[4px_0_10px_rgba(0,0,0,0.03)]">
         <div className="p-6 border-b border-slate-50 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-indigo-600 flex items-center justify-center shrink-0 shadow-lg shadow-indigo-100">
             <span className="text-white font-black text-sm tracking-tight">AS</span>
@@ -122,7 +122,7 @@ export default function DashboardLayout({
         </div>
       </aside>
 
-      <div className="w-full md:flex-1 flex flex-col min-h-screen overflow-x-hidden">
+      <div className="w-full md:flex-1 flex flex-col h-screen overflow-x-hidden">
         {/* Mobile Top Header (Header text only on desktop, full branding on mobile) */}
         <header className="bg-white border-b border-slate-100 px-5 h-16 flex justify-between items-center sticky top-0 z-40 print:hidden shadow-[0_1px_3px_rgba(0,0,0,0.06)]">
           <div className="flex md:hidden items-center gap-3 min-w-0">

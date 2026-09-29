@@ -7,11 +7,20 @@ import { useAccounting } from '@/lib/AccountingContext';
 
 type ReportTab = 'trial_balance' | 'pnl' | 'balance_sheet' | 'students_balance';
 
+const BATCH_ORDER = ['JD1', 'JD2', 'JD3', 'HS1', 'HS2', 'HS3', 'BS1', 'BS2', 'BS3', 'BS4', 'BS5', 'BS6'];
+
+const sortByBatch = (a: any, b: any) => {
+  const idxA = BATCH_ORDER.indexOf(a.batch || '');
+  const idxB = BATCH_ORDER.indexOf(b.batch || '');
+  const batchDiff = (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
+  if (batchDiff !== 0) return batchDiff;
+  return a.name.localeCompare(b.name);
+};
+
 export default function ReportsPage() {
   // Pull journalEntries so every balance is computed live (same as Ledger page)
   const { accounts, journalEntries, debtors } = useAccounting();
   const [activeTab, setActiveTab] = useState<ReportTab>('trial_balance');
-  const BATCH_ORDER = ['JD1', 'JD2', 'JD3', 'HS1', 'HS2', 'HS3', 'BS1', 'BS2', 'BS3', 'BS4', 'BS5', 'BS6'];
   const [selectedBatches, setSelectedBatches] = useState<Set<string>>(new Set());
   const [showBatchDropdown, setShowBatchDropdown] = useState(false);
 
@@ -30,14 +39,6 @@ export default function ReportsPage() {
       else next.add(batch);
       return next;
     });
-  };
-
-  const sortByBatch = (a: any, b: any) => {
-    const idxA = BATCH_ORDER.indexOf(a.batch || '');
-    const idxB = BATCH_ORDER.indexOf(b.batch || '');
-    const batchDiff = (idxA === -1 ? 999 : idxA) - (idxB === -1 ? 999 : idxB);
-    if (batchDiff !== 0) return batchDiff;
-    return a.name.localeCompare(b.name);
   };
 
   // ── LIVE BALANCE MAP ─────────────────────────────────────────────────────────
@@ -181,6 +182,24 @@ export default function ReportsPage() {
     totalLiabAndEquity,
     totalExp,
   } = reportData;
+
+  const { filteredDebtors, totalDues } = useMemo(() => {
+    const filtered = debtors
+      .filter(student => {
+        const acc = accounts.find(a => a.id === student.accountId);
+        const bal = acc?.balance || 0;
+        if (bal <= 0) return false;
+        if (!allBatchesSelected && !selectedBatches.has(student.batch || '')) return false;
+        return true;
+      })
+      .sort(sortByBatch);
+
+    const dues = filtered.reduce((sum, student) => {
+      const acc = accounts.find(a => a.id === student.accountId);
+      return sum + (acc?.balance || 0);
+    }, 0);
+    return { filteredDebtors: filtered, totalDues: dues };
+  }, [debtors, accounts, allBatchesSelected, selectedBatches]);
 
   const handleDownloadReport = useCallback(() => {
     const today = getTodayFormatted();
@@ -699,24 +718,6 @@ export default function ReportsPage() {
             {/* ── Body ── */}
             <div className="p-0 sm:p-6 print:p-2">
               {(() => {
-                const { filteredDebtors, totalDues } = useMemo(() => {
-                  const filtered = debtors
-                    .filter(student => {
-                      const acc = accounts.find(a => a.id === student.accountId);
-                      const bal = acc?.balance || 0;
-                      if (bal <= 0) return false;
-                      if (!allBatchesSelected && !selectedBatches.has(student.batch || '')) return false;
-                      return true;
-                    })
-                    .sort(sortByBatch);
-
-                  const dues = filtered.reduce((sum, student) => {
-                    const acc = accounts.find(a => a.id === student.accountId);
-                    return sum + (acc?.balance || 0);
-                  }, 0);
-                  return { filteredDebtors: filtered, totalDues: dues };
-                }, [debtors, accounts, allBatchesSelected, selectedBatches]);
-
                 if (filteredDebtors.length === 0) {
                   return (
                     <div className="py-16 text-center text-slate-400 italic text-sm">No students found with a pending balance.</div>

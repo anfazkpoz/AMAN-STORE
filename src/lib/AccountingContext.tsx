@@ -85,7 +85,30 @@ export function AccountingProvider({ children }: { children: React.ReactNode }) 
         console.error("One or more API responses were not arrays:", { accJson, entriesJson, debtorsJson });
       }
 
-      setAccounts(normAcc);
+      // Compute live balances from journal entries to fix out-of-sync database balances
+      const liveBalances: Record<string, number> = {};
+      normAcc.forEach((a: any) => { liveBalances[a.id] = 0; });
+      
+      normEntries.forEach((entry: any) => {
+        if (!entry.lines) return;
+        entry.lines.forEach((line: any) => {
+          const acc = normAcc.find((a: any) => a.id === line.accountId);
+          if (acc) {
+            if (line.type === 'Debit') {
+              liveBalances[line.accountId] += (acc.balanceType === 'Debit' ? line.amount : -line.amount);
+            } else {
+              liveBalances[line.accountId] += (acc.balanceType === 'Debit' ? -line.amount : line.amount);
+            }
+          }
+        });
+      });
+
+      const accountsWithLiveBalances = normAcc.map((a: any) => ({
+        ...a,
+        balance: liveBalances[a.id] ?? 0
+      }));
+
+      setAccounts(accountsWithLiveBalances);
       setJournalEntries(normEntries);
       setDebtors(normDebtors);
       setCashTransfers(normTransfers);
