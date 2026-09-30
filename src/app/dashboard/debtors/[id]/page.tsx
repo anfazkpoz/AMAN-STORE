@@ -41,7 +41,7 @@ export default function StudentLedgerPage() {
 
   const studentTransactions = journalEntries.filter(entry => 
     entry.lines.some(line => line.accountId === studentAccount.id)
-  ).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  ).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const currentBalance = studentTransactions.reduce((acc, entry) => {
     const line = entry.lines.find((l: any) => l.accountId === studentAccount.id);
@@ -71,6 +71,9 @@ export default function StudentLedgerPage() {
       ],
       createdBy: currentUser?.name || 'System'
     });
+
+    await reloadData();
+    router.refresh();
 
     setAmount("");
     setNarration("");
@@ -182,11 +185,11 @@ export default function StudentLedgerPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="flex flex-col lg:flex-row items-stretch gap-6">
         
         {/* Transaction Entry Form — Admin only */}
         {currentUser?.role === 'Admin' && !studentDebtor.isArchived && (
-        <div className="lg:col-span-1 border border-slate-200 bg-white rounded-3xl p-6 shadow-sm self-start">
+        <div className="w-full lg:w-1/3 shrink-0 border border-slate-200 bg-white rounded-3xl p-6 shadow-sm h-full flex flex-col">
           <h2 className="text-lg font-bold text-slate-800 mb-4 tracking-tight border-b border-slate-100 pb-4">Post Transaction</h2>
           
           {success && (
@@ -196,7 +199,7 @@ export default function StudentLedgerPage() {
             </div>
           )}
 
-          <form onSubmit={handlePostTransaction} className="space-y-4">
+          <form onSubmit={handlePostTransaction} className="space-y-4 flex-1 flex flex-col">
             <div className="space-y-1.5 focus-within:text-indigo-600 transition-colors">
               <label className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Transaction Date</label>
               <input 
@@ -255,7 +258,7 @@ export default function StudentLedgerPage() {
 
             <button 
               type="submit" 
-              className={`w-full py-3 rounded-xl transition-all shadow-md text-white font-bold text-sm tracking-wide flex justify-center items-center gap-2 active:scale-[0.98] ${type === 'Debit' ? 'bg-slate-800 hover:bg-slate-900 shadow-slate-800/20' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'}`}
+              className={`mt-auto w-full py-3 rounded-xl transition-all shadow-md text-white font-bold text-sm tracking-wide flex justify-center items-center gap-2 active:scale-[0.98] ${type === 'Debit' ? 'bg-slate-800 hover:bg-slate-900 shadow-slate-800/20' : 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-600/20'}`}
             >
               Post {type} Entry
             </button>
@@ -264,7 +267,7 @@ export default function StudentLedgerPage() {
         )}
 
         {/* Ledger Statement View */}
-        <div className={`${currentUser?.role === 'Admin' ? 'lg:col-span-2' : 'lg:col-span-3'} bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden`}>
+        <div className="flex-1 flex flex-col h-full max-h-[500px] lg:max-h-[600px] bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
           <div className="p-6 border-b border-slate-100 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-indigo-50 rounded-xl">
@@ -275,11 +278,11 @@ export default function StudentLedgerPage() {
           </div>
           
           {studentTransactions.length === 0 ? (
-            <div className="p-16 text-center text-slate-500 text-sm font-medium">
+            <div className="p-16 text-center text-slate-500 text-sm font-medium flex-1">
               No transactions recorded for this student yet.
             </div>
           ) : (
-            <div className="divide-y divide-slate-100 max-h-[500px] overflow-y-auto">
+            <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-slate-100">
               {studentTransactions.map(entry => {
                 const line = entry.lines.find(l => l.accountId === studentAccount?.id);
                 if (!line) return null;
@@ -290,7 +293,7 @@ export default function StudentLedgerPage() {
                   <div 
                     key={entry.id} 
                     onClick={() => router.push(`/dashboard/journal?highlightId=${entry.id}`)}
-                    className="p-5 hover:bg-slate-50 transition-colors flex items-center justify-between group cursor-pointer"
+                    className="py-5 pl-5 pr-6 sm:pr-8 hover:bg-slate-50 transition-colors flex items-center justify-between group cursor-pointer"
                   >
                     <div>
                       <div className="flex items-center gap-2">
