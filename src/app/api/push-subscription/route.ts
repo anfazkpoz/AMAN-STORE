@@ -24,6 +24,7 @@ export async function POST(req: Request) {
   }
 }
 
+
 // DELETE /api/push-subscription — remove subscription on logout
 export async function DELETE(req: Request) {
   try {
