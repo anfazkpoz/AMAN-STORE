@@ -104,7 +104,7 @@ function getSessionFromRequest(req: Request): { role?: string; id?: string; name
 export async function POST(req: Request) {
   try {
     await dbConnect();
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { name, phone, mobile, password, role, batch, creatorRole } = body;
 
     // Check global registration lock for Student creation
@@ -177,7 +177,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     await dbConnect();
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { id, ...updateData } = body;
 
     const user = await User.findById(id);
@@ -216,7 +216,7 @@ export async function PUT(req: Request) {
 export async function DELETE(req: Request) {
   try {
     await dbConnect();
-    const { id } = await req.json();
+    const { id } = await req.json().catch(() => ({}));
     const user = await User.findById(id);
     if (user && user.role === 'Student' && user.debtorId) {
        const debtor = await Debtor.findById(user.debtorId);

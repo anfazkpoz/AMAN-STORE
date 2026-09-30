@@ -445,9 +445,9 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px] print:rounded-none print:shadow-none print:border-none print:m-0 print:p-0 scroll-reveal">
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden min-h-[400px] print:rounded-none print:shadow-none print:border-none print:m-0 print:p-0 print:overflow-visible scroll-reveal">
         {activeTab === 'trial_balance' && (
-          <div className="animate-in fade-in duration-300">
+          <div className="animate-in fade-in duration-300 print:overflow-visible">
             <div className="p-6 bg-slate-50/50 border-b border-slate-100 flex justify-between items-center">
               <div>
                 <h2 className="text-lg font-bold text-slate-800 uppercase tracking-wide">Trial Balance</h2>

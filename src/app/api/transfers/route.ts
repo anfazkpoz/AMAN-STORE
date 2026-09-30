@@ -19,7 +19,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     await dbConnect();
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { amount, staffId, staffName } = body;
     if (!amount || !staffId || !staffName) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     await dbConnect();
-    const { id } = await req.json();
+    const { id } = await req.json().catch(() => ({}));
     
     const transfer = await CashTransfer.findById(id);
     if (!transfer) return NextResponse.json({ error: "Transfer not found" }, { status: 404 });

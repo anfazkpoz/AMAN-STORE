@@ -100,7 +100,7 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   try {
     await dbConnect();
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { name, phone, mobile, password, batch, creatorRole } = body;
 
     // 1. Fetch global registration setting

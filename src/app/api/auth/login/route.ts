@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export async function POST(req: Request) {
   try {
     await dbConnect();
-    const { phone, password, role } = await req.json();
+    const { phone, password, role } = await req.json().catch(() => ({}));
 
     // 1. Seed Default Users if none exist
     const adminCount = await User.countDocuments({ role: 'Admin' });

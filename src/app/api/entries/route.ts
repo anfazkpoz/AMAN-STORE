@@ -37,7 +37,7 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     await dbConnect();
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
 
     for (const line of body.lines) {
       const debtor = await Debtor.findOne({ accountId: line.accountId });
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
 export async function PUT(req: Request) {
   try {
     await dbConnect();
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { id, ...updateData } = body;
 
     const oldEntry = await JournalEntry.findById(id);
@@ -126,7 +126,7 @@ export async function PUT(req: Request) {
 export async function DELETE(req: Request) {
   try {
     await dbConnect();
-    const { id } = await req.json();
+    const { id } = await req.json().catch(() => ({}));
     const entry = await JournalEntry.findById(id);
 
     if (entry) {
